@@ -59,10 +59,81 @@ ABR_GUID=your-guid-here
 
 ## Usage
 
-Full documentation is added as each feature lands. Planned for v1:
+### ABN, ACN and BSB
 
-- **Value objects:** `Abn`, `Acn`, `Bsb`, `PhoneNumber`, `Postcode` and a `State` enum, with
-  parsing, validation and formatting.
+`Abn`, `Acn` and `Bsb` are immutable value objects. They accept a number the way people type
+it, keep only the digits, and format it for display.
+
+```php
+use EastpointLabs\LaravelAu\Support\Abn;
+
+$abn = Abn::from('51 824 753 556');
+
+$abn->value;                  // "51824753556"
+$abn->format();               // "51 824 753 556"
+(string) $abn;                // "51824753556"
+json_encode(['abn' => $abn]); // {"abn":"51824753556"}
+```
+
+Store `value`, and use `format()` when you show the number to people. Input may contain spaces,
+hyphens, dots and non-breaking spaces. Any other character, such as a letter or a tab, makes it
+invalid.
+
+Check or parse input with `isValid()`, `tryFrom()` or `from()`:
+
+```php
+Abn::isValid('51 824 753 556'); // true
+Abn::isValid('51 824 753 557'); // false: bad checksum
+
+Abn::tryFrom('51 824 753 557'); // null
+Abn::from('51 824 753 557');    // throws InvalidValueException
+```
+
+`tryFrom()` returns `null` for null, blank or invalid input, so it suits optional fields.
+`from()` throws `EastpointLabs\LaravelAu\Exceptions\InvalidValueException`, which extends
+`InvalidArgumentException`. Its message never includes the input, which may be personal
+information.
+
+Two objects are equal when their digits match:
+
+```php
+Abn::from('51824753556')->equals(Abn::from('51-824-753-556')); // true
+```
+
+`Acn` and `Bsb` work the same way:
+
+```php
+use EastpointLabs\LaravelAu\Support\Acn;
+use EastpointLabs\LaravelAu\Support\Bsb;
+
+Acn::from('004085616')->format(); // "004 085 616"
+Acn::isValid('000 000 018');      // false: bad check digit
+
+Bsb::from('062000')->format();    // "062-000"
+```
+
+A BSB has no check digit, so `Bsb` only checks that there are six digits. It can't tell you
+whether the branch exists.
+
+#### Finding the ACN in an ABN
+
+A company's ABN is usually two digits followed by its ACN. `acn()` returns that ACN when the
+last nine digits form a valid one, and `null` otherwise:
+
+```php
+Abn::from('53 004 085 616')->acn()?->format(); // "004 085 616"
+Abn::from('51 824 753 556')->acn();            // null
+```
+
+This is a check-digit match, not a register lookup. It doesn't prove the ABN and ACN belong to
+the same company.
+
+### Planned for v1
+
+The rest of the API is documented here as each feature lands:
+
+- **Value objects:** `PhoneNumber`, `Postcode` and a `State` enum, with parsing, validation and
+  formatting.
 - **Validation rules:** rule objects and string rules (`abn`, `acn`, `abn_or_acn`, `bsb`,
   `au_phone`, `au_postcode`), plus `abn_active`, which checks the ABN is active on the
   Australian Business Register.

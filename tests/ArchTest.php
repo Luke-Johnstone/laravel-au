@@ -18,3 +18,15 @@ arch('the core does not depend on Filament')
 arch('support classes are plain PHP with no Laravel dependency')
     ->expect('EastpointLabs\LaravelAu\Support')
     ->not->toUse(['Illuminate', 'Filament']);
+
+// Each rule needs its own classes() filter: it skips enums, and chaining a
+// second expectation onto the same arch() call would drop the filter.
+arch('support classes are final')
+    ->expect('EastpointLabs\LaravelAu\Support')
+    ->classes()
+    ->toBeFinal();
+
+arch('support classes are readonly')
+    ->expect('EastpointLabs\LaravelAu\Support')
+    ->classes()
+    ->toBeReadonly();

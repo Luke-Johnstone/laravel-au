@@ -10,3 +10,9 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Added
 
 - Package skeleton: service provider, config, test suite, CI and static analysis.
+- `Abn`, `Acn` and `Bsb` value objects that parse, validate and format Australian Business
+  Numbers, Australian Company Numbers and BSBs.
+- `Abn::acn()`, which returns the ACN held in the last nine digits of a company's ABN when they
+  form a valid ACN.
+- `InvalidValueException`, thrown by `from()` for invalid input. Its message never includes the
+  input.
