@@ -128,12 +128,102 @@ Abn::from('51 824 753 556')->acn();            // null
 This is a check-digit match, not a register lookup. It doesn't prove the ABN and ACN belong to
 the same company.
 
+### States and postcodes
+
+`State` is a string-backed enum with one case for each state and mainland territory: `NSW`,
+`VIC`, `QLD`, `SA`, `WA`, `TAS`, `NT` and `ACT`. Each case's value is its code, so it stores
+as a short string and works with Laravel's enum cast and `Rule::enum()`.
+
+```php
+use EastpointLabs\LaravelAu\Support\State;
+
+State::VIC->value;   // "VIC"
+State::VIC->label(); // "Victoria"
+
+State::options();    // ['NSW' => 'New South Wales', 'VIC' => 'Victoria', ...]
+```
+
+`options()` maps codes to labels in case order, ready for a select field.
+
+To read a state the way people type it, use `fromLoose()`. It matches a code or full name in
+any case, ignores surrounding whitespace and allows one trailing dot. It returns `null` for
+null, blank or unknown input.
+
+```php
+State::fromLoose('nsw');             // State::NSW
+State::fromLoose('New South Wales'); // State::NSW
+State::fromLoose(' Vic. ');          // State::VIC
+State::fromLoose('New Zealand');     // null
+```
+
+`Postcode` is a value object that works like `Abn`, with `from()`, `tryFrom()`, `isValid()`,
+`value`, `format()` and `equals()`. It also knows which state it belongs to. The value is a
+string, so leading zeros are kept.
+
+```php
+use EastpointLabs\LaravelAu\Support\Postcode;
+use EastpointLabs\LaravelAu\Support\State;
+
+$postcode = Postcode::from('0800');
+
+$postcode->value;                       // "0800"
+$postcode->format();                    // "0800"
+(string) $postcode;                     // "0800"
+json_encode(['postcode' => $postcode]); // {"postcode":"0800"}
+
+$postcode->state();               // State::NT
+$postcode->belongsTo(State::NT);  // true
+$postcode->belongsTo(State::QLD); // false
+```
+
+`belongsTo()` is handy for checking a postcode against the state someone picked in a form.
+
+A postcode is valid when it has exactly 4 digits and falls in a state's postcode range.
+Surrounding whitespace is ignored, including non-breaking spaces. Anything else, such as a
+space inside the number, makes it invalid.
+
+```php
+Postcode::isValid('2600'); // true
+Postcode::isValid('800');  // false: needs all 4 digits
+Postcode::isValid('0500'); // false: in no state's range
+
+Postcode::tryFrom('800');  // null
+Postcode::from('800');     // throws InvalidValueException
+```
+
+The ranges are a sanity check, not proof a postcode exists, so a valid `Postcode` may not be
+in use. Jervis Bay (2540) and Norfolk Island (2899) fall inside NSW ranges, so they count as
+NSW.
+
+#### Finding the state for a postcode
+
+`State::fromPostcode()` returns the state for a postcode, or `null` when it's in no state's
+range. A string follows the same rules as `Postcode`. An int can't hold a leading zero, so
+it's zero-padded to 4 digits.
+
+```php
+State::fromPostcode('2000'); // State::NSW
+State::fromPostcode('0800'); // State::NT
+State::fromPostcode('800');  // null: a string needs all 4 digits
+State::fromPostcode(800);    // State::NT: read as "0800"
+State::fromPostcode(10000);  // null
+```
+
+Don't write the leading zero in an int. PHP reads an int literal that starts with `0` as
+octal: `0200` is 128, which is in no state's range, and `0800` is a parse error. Pass the
+string `'0800'` or the int `800` instead.
+
+`postcodeRanges()` returns a state's inclusive ranges as ints, so `200` means 0200:
+
+```php
+State::ACT->postcodeRanges(); // [[200, 299], [2600, 2618], [2900, 2920]]
+```
+
 ### Planned for v1
 
 The rest of the API is documented here as each feature lands:
 
-- **Value objects:** `PhoneNumber`, `Postcode` and a `State` enum, with parsing, validation and
-  formatting.
+- **Value objects:** `PhoneNumber`, with parsing, validation and formatting.
 - **Validation rules:** rule objects and string rules (`abn`, `acn`, `abn_or_acn`, `bsb`,
   `au_phone`, `au_postcode`), plus `abn_active`, which checks the ABN is active on the
   Australian Business Register.

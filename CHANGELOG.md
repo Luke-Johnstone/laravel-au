@@ -16,3 +16,7 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   form a valid ACN.
 - `InvalidValueException`, thrown by `from()` for invalid input. Its message never includes the
   input.
+- `State` enum for the eight states and territories, with full-name labels, loose parsing of
+  codes and names, postcode-to-state lookup and `options()` for select fields.
+- `Postcode` value object that checks a postcode has 4 digits and falls in a state's range, and
+  reports which state it belongs to.

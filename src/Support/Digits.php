@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace EastpointLabs\LaravelAu\Support;
 
 /**
- * Normalises identifier input (ABN, ACN, BSB) to its digits.
+ * Input normalisation shared by the value objects.
  *
  * @internal
  */
@@ -27,5 +27,14 @@ final readonly class Digits
         }
 
         return $digits;
+    }
+
+    /**
+     * Trim whitespace from both ends, treating a non-breaking space (U+00A0) as whitespace too,
+     * because it often comes along when a value is copied from a web page.
+     */
+    public static function trim(string $input): string
+    {
+        return trim(str_replace("\u{00A0}", ' ', $input));
     }
 }
