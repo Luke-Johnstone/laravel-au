@@ -1,0 +1,15 @@
+includes:
+    - vendor/larastan/larastan/extension.neon
+
+parameters:
+    level: 8
+    paths:
+        - src
+        - config
+    tmpDir: build/phpstan
+    treatPhpDocTypesAsCertain: false
+    reportUnmatchedIgnoredErrors: true
+
+    # The package's own config/ uses env(), exactly like an app's config/.
+    configDirectories:
+        - %currentWorkingDirectory%/config

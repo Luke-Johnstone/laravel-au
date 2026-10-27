@@ -1,0 +1,13 @@
+/vendor/
+composer.lock
+.phpunit.cache/
+.phpunit.result.cache
+/build/
+/coverage/
+
+# Local environment and editor files
+.env
+.env.*
+.DS_Store
+.idea/
+.vscode/

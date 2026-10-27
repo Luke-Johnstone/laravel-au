@@ -1,0 +1,38 @@
+name: Bug report
+description: Something isn't working as documented.
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you expect, and what happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: How to reproduce
+      description: The smallest code sample that shows the problem. Please don't paste real ABNs of private individuals, phone numbers or your ABR GUID.
+      render: php
+    validations:
+      required: true
+  - type: input
+    id: package
+    attributes:
+      label: Package version
+      placeholder: 1.0.0
+    validations:
+      required: true
+  - type: input
+    id: laravel
+    attributes:
+      label: Laravel and PHP versions
+      placeholder: Laravel 13.2, PHP 8.4
+    validations:
+      required: true
+  - type: input
+    id: filament
+    attributes:
+      label: Filament version (if relevant)
+      placeholder: 5.1
