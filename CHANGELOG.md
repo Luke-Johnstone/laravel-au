@@ -20,3 +20,6 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   codes and names, postcode-to-state lookup and `options()` for select fields.
 - `Postcode` value object that checks a postcode has 4 digits and falls in a state's range, and
   reports which state it belongs to.
+- `PhoneNumber` value object that parses Australian mobile, landline and 13/1300/1800 numbers
+  typed in national or +61 form, and formats them for display or as E.164.
+- `PhoneType` enum (`Mobile`, `Landline`, `Service`), returned by `PhoneNumber::type()`.

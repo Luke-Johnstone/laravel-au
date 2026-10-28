@@ -219,11 +219,95 @@ string `'0800'` or the int `800` instead.
 State::ACT->postcodeRanges(); // [[200, 299], [2600, 2618], [2900, 2920]]
 ```
 
+### Phone numbers
+
+`PhoneNumber` is a value object for Australian mobile, landline and service (13, 1300 and 1800)
+numbers. It works like `Abn`, with `from()`, `tryFrom()`, `isValid()`, `value`, `format()` and
+`equals()`. The examples below use numbers that the Australian Communications and Media
+Authority (ACMA) reserves for use in fiction.
+
+```php
+use EastpointLabs\LaravelAu\Support\PhoneNumber;
+
+$phone = PhoneNumber::from('+61 491 570 156');
+
+$phone->value;                    // "0491570156"
+$phone->format();                 // "0491 570 156"
+$phone->formatInternational();    // "+61 491 570 156"
+$phone->toE164();                 // "+61491570156"
+(string) $phone;                  // "0491570156"
+json_encode(['phone' => $phone]); // {"phone":"0491570156"}
+```
+
+`value` holds the national digits, so a number is stored the same way however it was typed.
+Use `format()` to show it to people in Australia and `formatInternational()` for people
+overseas. `toE164()` gives the compact international form that SMS and calling services
+usually expect.
+
+Input may contain spaces, hyphens, dots, parentheses and non-breaking spaces. A leading `+61`
+or `61` becomes the trunk `0`, and the `+61 (0)` form works too. Numbers from other countries
+are rejected, and any other character, such as a letter or a tab, makes the input invalid.
+
+```php
+PhoneNumber::isValid('0491-570-156');       // true
+PhoneNumber::isValid('+61 (0)2 5550 1234'); // true
+PhoneNumber::isValid('0491 570 15');        // false: too few digits
+
+PhoneNumber::tryFrom('0491 570 15'); // null
+PhoneNumber::from('0491 570 15');    // throws InvalidValueException
+```
+
+Two numbers are equal when their national digits match:
+
+```php
+PhoneNumber::from('0491-570-156')->equals(PhoneNumber::from('+61 (0)491 570 156')); // true
+```
+
+#### Mobiles, landlines and service numbers
+
+The leading digits decide the type. A mobile starts with `04` and a landline with `02`, `03`,
+`07` or `08`, and both have 10 digits. A service number is `1300` or `1800` followed by 6
+digits, or `13` followed by 4.
+
+`type()` returns a `PhoneType`, a string-backed enum with the cases `Mobile` (`'mobile'`),
+`Landline` (`'landline'`) and `Service` (`'service'`). `isMobile()`, `isLandline()` and
+`isService()` are shortcuts for the same check.
+
+```php
+use EastpointLabs\LaravelAu\Support\PhoneNumber;
+use EastpointLabs\LaravelAu\Support\PhoneType;
+
+$landline = PhoneNumber::from('03 5550 1234');
+
+$landline->type() === PhoneType::Landline; // true
+$landline->isLandline();                   // true
+$landline->areaCode();                     // "03"
+$landline->format();                       // "(03) 5550 1234"
+$landline->formatInternational();          // "+61 3 5550 1234"
+```
+
+`areaCode()` returns `"02"`, `"03"`, `"07"` or `"08"` for a landline, and `null` for anything
+else.
+
+Service numbers can't be dialled from overseas, so `toE164()` and `formatInternational()`
+return `null` for them:
+
+```php
+$service = PhoneNumber::from('1800 160 401');
+
+$service->isService();           // true
+$service->format();              // "1800 160 401"
+$service->toE164();              // null
+$service->formatInternational(); // null
+
+PhoneNumber::from('1300-975-707')->format(); // "1300 975 707"
+PhoneNumber::from('13 1234')->format();      // "13 12 34"
+```
+
 ### Planned for v1
 
 The rest of the API is documented here as each feature lands:
 
-- **Value objects:** `PhoneNumber`, with parsing, validation and formatting.
 - **Validation rules:** rule objects and string rules (`abn`, `acn`, `abn_or_acn`, `bsb`,
   `au_phone`, `au_postcode`), plus `abn_active`, which checks the ABN is active on the
   Australian Business Register.
