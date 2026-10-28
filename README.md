@@ -191,7 +191,7 @@ Postcode::tryFrom('800');  // null
 Postcode::from('800');     // throws InvalidValueException
 ```
 
-The ranges are a sanity check, not proof a postcode exists, so a valid `Postcode` may not be
+The ranges show a postcode is plausible, not that it exists, so a valid `Postcode` may not be
 in use. Jervis Bay (2540) and Norfolk Island (2899) fall inside NSW ranges, so they count as
 NSW.
 

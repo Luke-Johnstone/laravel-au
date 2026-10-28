@@ -11,7 +11,7 @@ use Stringable;
 /**
  * An Australian postcode: 4 digits that fall inside a state's postcode ranges.
  *
- * This is a sanity check, not an existence check. A valid postcode may not be allocated.
+ * This checks the postcode is plausible, not that it exists. A valid postcode may not be allocated.
  */
 final readonly class Postcode implements JsonSerializable, Stringable
 {

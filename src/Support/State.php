@@ -85,7 +85,7 @@ enum State: string
     }
 
     /**
-     * Inclusive postcode ranges. They're a state-level sanity check, not proof a postcode
+     * Inclusive postcode ranges. They show a postcode is plausible for the state, not that it
      * exists. Written as ints, so "0200" is 200: a literal 0200 would be octal.
      *
      * @return list<array{0: int, 1: int}>
