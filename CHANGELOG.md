@@ -23,3 +23,11 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `PhoneNumber` value object that parses Australian mobile, landline and 13/1300/1800 numbers
   typed in national or +61 form, and formats them for display or as E.164.
 - `PhoneType` enum (`Mobile`, `Landline`, `Service`), returned by `PhoneNumber::type()`.
+- Validation rules `Abn`, `Acn`, `AbnOrAcn`, `Bsb`, `AuPhone` and `AuPostcode`, backed by the
+  value objects. `AuPhone` takes the phone types to allow, and `AuPostcode` an optional state.
+- String rules `abn`, `acn`, `abn_or_acn`, `bsb`, `au_phone` (such as `au_phone:mobile`) and
+  `au_postcode` (such as `au_postcode:NSW`), which pass and fail like the rule objects.
+- `AuPostcode::matchingStateField()`, which checks a postcode against the state in another
+  field, including each item in a nested array.
+- Australian English validation messages under the `au::validation` translation namespace,
+  publishable with the `au-translations` tag.

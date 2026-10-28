@@ -43,10 +43,12 @@ optional Filament form fields on top.
 composer require eastpointlabs/laravel-au
 ```
 
-Publish the config file if you want to change the defaults:
+Publish the config file if you want to change the defaults, and the translations if you want to
+change or translate the validation messages:
 
 ```bash
-php artisan vendor:publish --tag="laravel-au-config"
+php artisan vendor:publish --tag="au-config"
+php artisan vendor:publish --tag="au-translations"
 ```
 
 To use ABN Lookup, request a free GUID from the
@@ -58,6 +60,138 @@ ABR_GUID=your-guid-here
 ```
 
 ## Usage
+
+### Validation rules
+
+Each rule checks input with the matching value object described below, so it reads input the
+same way: an ABN typed with spaces passes, and one with a letter fails. Every rule comes as a
+rule object and as a string rule:
+
+| Rule object      | String rule   | Passes                                    |
+|------------------|---------------|-------------------------------------------|
+| `new Abn`        | `abn`         | a valid ABN                               |
+| `new Acn`        | `acn`         | a valid ACN                               |
+| `new AbnOrAcn`   | `abn_or_acn`  | a valid ABN (11 digits) or ACN (9 digits) |
+| `new Bsb`        | `bsb`         | a BSB with 6 digits                       |
+| `new AuPhone`    | `au_phone`    | a mobile or landline number               |
+| `new AuPostcode` | `au_postcode` | a postcode in any state                   |
+
+```php
+use EastpointLabs\LaravelAu\Rules\AbnOrAcn;
+use EastpointLabs\LaravelAu\Rules\Bsb;
+
+$request->validate([
+    'supplier_number' => ['required', new AbnOrAcn],
+    'bsb'             => ['nullable', new Bsb],
+]);
+
+// The same, with string rules
+$request->validate([
+    'supplier_number' => 'required|abn_or_acn',
+    'bsb'             => 'nullable|bsb',
+]);
+```
+
+The rule objects live in `EastpointLabs\LaravelAu\Rules`. `Abn`, `Acn` and `Bsb` share their
+names with the value objects in `EastpointLabs\LaravelAu\Support`, so alias one if a file needs
+both.
+
+`null` passes, so pair each rule with `required` or `nullable` as you would any other. Values
+that aren't strings, such as ints and arrays, fail.
+
+#### Phone number rules
+
+`AuPhone` allows mobiles and landlines by default. Use a named constructor, or pass the
+`PhoneType` cases you want:
+
+```php
+use EastpointLabs\LaravelAu\Rules\AuPhone;
+use EastpointLabs\LaravelAu\Support\PhoneType;
+
+new AuPhone;                                        // mobile or landline
+AuPhone::mobile();                                  // mobile only
+AuPhone::landline();                                // landline only
+AuPhone::any();                                     // mobile, landline or service
+new AuPhone(PhoneType::Mobile, PhoneType::Service); // mobile or service
+```
+
+The string rule takes the types as parameters: `au_phone:mobile` or
+`au_phone:mobile,landline,service`. An unknown type throws an `InvalidArgumentException`,
+because it's a mistake in your code rather than in the input. See
+[Mobiles, landlines and service numbers](#mobiles-landlines-and-service-numbers) for how a
+number's type is decided.
+
+#### Postcode rules
+
+`AuPostcode` passes a postcode from any state. Give it a state to require a postcode from that
+state:
+
+```php
+use EastpointLabs\LaravelAu\Rules\AuPostcode;
+use EastpointLabs\LaravelAu\Support\State;
+
+new AuPostcode;             // any state
+new AuPostcode(State::NSW); // New South Wales only
+new AuPostcode('NSW');      // the same: a state code or name, in any case
+```
+
+The string forms are `au_postcode` and `au_postcode:NSW`. With NSW as the state, `3000` fails
+with "The postcode must be in New South Wales."
+
+Only pass states from your own code, never user input. An unknown state string, such as
+`new AuPostcode('Atlantis')`, throws an `InvalidArgumentException`, because it's treated as a
+typo in your code rather than a validation failure. To check a state the user chose, use
+`matchingStateField()`.
+
+#### Matching a postcode to the chosen state
+
+There's no custom rule for state fields: use Laravel's `Rule::enum(State::class)`. Then
+`AuPostcode::matchingStateField()` checks the postcode against the state the user picked:
+
+```php
+use EastpointLabs\LaravelAu\Rules\AuPostcode;
+use EastpointLabs\LaravelAu\Support\State;
+use Illuminate\Validation\Rule;
+
+$request->validate([
+    'state'    => ['required', Rule::enum(State::class)],
+    'postcode' => ['required', AuPostcode::matchingStateField('state')],
+]);
+```
+
+With `state` set to `NSW`, the postcode `2000` passes and `3000` fails with "The postcode must
+be in New South Wales."
+
+The state is read with `State::fromLoose()`, so a code or full name in any case works. An empty
+or unrecognised state is ignored, and the postcode only has to be valid in some state, so the
+rule never throws on user input. That's why the state field needs its own
+`Rule::enum(State::class)`: it's what reports a bad state.
+
+In nested arrays, a field name without a dot is read from the sibling, so each address is
+checked against its own state:
+
+```php
+$request->validate([
+    'addresses.*.state'    => ['required', Rule::enum(State::class)],
+    'addresses.*.postcode' => ['required', AuPostcode::matchingStateField('state')],
+]);
+```
+
+Here `addresses.0.postcode` is checked against `addresses.0.state`. A field name with a dot,
+such as `matchingStateField('billing.state')`, is an absolute path from the top of the data.
+
+#### Messages
+
+The messages are in Australian English, under the `au::validation` translation namespace. For
+example, "The abn must be a valid ABN." and "The postcode must be in New South Wales."
+
+To change them, publish the translations with the `au-translations` tag (see
+[Installation](#installation)) and edit `lang/vendor/au/en/validation.php`. To translate them,
+add the same file for another locale, such as `lang/vendor/au/fr/validation.php`.
+
+For the string rules, your app's own messages win, as they do for Laravel's built-in rules: an
+inline custom message, or a line keyed by the rule name (such as `abn`) in your app's
+`lang/en/validation.php`.
 
 ### ABN, ACN and BSB
 
@@ -176,7 +310,8 @@ $postcode->belongsTo(State::NT);  // true
 $postcode->belongsTo(State::QLD); // false
 ```
 
-`belongsTo()` is handy for checking a postcode against the state someone picked in a form.
+`belongsTo()` checks a postcode against a state. To do this in form validation, use
+[`AuPostcode::matchingStateField()`](#matching-a-postcode-to-the-chosen-state).
 
 A postcode is valid when it has exactly 4 digits and falls in a state's postcode range.
 Surrounding whitespace is ignored, including non-breaking spaces. Anything else, such as a
@@ -308,12 +443,11 @@ PhoneNumber::from('13 1234')->format();      // "13 12 34"
 
 The rest of the API is documented here as each feature lands:
 
-- **Validation rules:** rule objects and string rules (`abn`, `acn`, `abn_or_acn`, `bsb`,
-  `au_phone`, `au_postcode`), plus `abn_active`, which checks the ABN is active on the
-  Australian Business Register.
 - **Eloquent casts:** store canonical values and read them back as value objects.
 - **ABN Lookup client:** look up an ABN or ACN, or search by business name, with caching, and
   `Abr::fake()` for testing your own code.
+- **Active ABN rule:** `abn_active`, which checks the ABN is active on the Australian Business
+  Register.
 - **Faker provider:** `fake()->abn()`, `fake()->auMobileNumber()` and friends for factories.
 - **Filament fields:** `AbnInput` (with optional lookup that fills the business name),
   `AcnInput`, `BsbInput`, `AuPhoneInput`, `AuPostcodeInput`, `StateSelect` and
