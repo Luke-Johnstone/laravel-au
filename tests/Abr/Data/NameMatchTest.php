@@ -3,87 +3,37 @@
 declare(strict_types=1);
 
 use EastpointLabs\LaravelAu\Abr\Data\NameMatch;
-use EastpointLabs\LaravelAu\Support\Abn;
-use EastpointLabs\LaravelAu\Support\Postcode;
 use EastpointLabs\LaravelAu\Support\State;
 
 mutates(NameMatch::class);
 
-dataset('unusable entries', [
-    'an ABN that fails the checksum' => fn (): array => nameSearchEntry(['Abn' => '51824753557']),
-    'an ABN that is too short' => fn (): array => nameSearchEntry(['Abn' => '5182475355']),
-    'an ABN with a letter' => fn (): array => nameSearchEntry(['Abn' => '5182475355a']),
-    'an empty ABN' => fn (): array => nameSearchEntry(['Abn' => '']),
-    'a null ABN' => fn (): array => nameSearchEntry(['Abn' => null]),
-    'no ABN' => fn (): array => array_diff_key(nameSearchEntry(), ['Abn' => true]),
-    'a string instead of an object' => 'Example Holdings Pty Ltd',
-    'a number instead of an object' => 42,
-    'null instead of an object' => null,
-]);
-
-dataset('payloads without names', [
-    'an empty payload' => [[]],
-    'no Names field' => [['Message' => '']],
-    'null Names' => [['Message' => '', 'Names' => null]],
-    'an empty Names list' => [['Message' => 'No records found', 'Names' => []]],
-    'Names as a string' => [['Message' => '', 'Names' => 'Example Holdings Pty Ltd']],
-]);
-
 describe('listFromPayload()', function (): void {
-    it('builds a match for each entry with a valid ABN, in order', function (): void {
+    it('builds a match for each entry with a valid ABN, in order, skipping the one that fails the checksum', function (): void {
         $matches = NameMatch::listFromPayload(abrPayload('names-search.jsonp'));
 
-        expect($matches)->toHaveCount(3)
-            ->each->toBeInstanceOf(NameMatch::class)
-            ->and(array_keys($matches))->toBe([0, 1, 2])
+        expect(array_keys($matches))->toBe([0, 1, 2])
             ->and(array_map(fn (NameMatch $match): string => $match->abn->value, $matches))
-            ->toBe(['51824753556', '53004085616', '83914571673']);
-    });
-
-    it('skips the entry whose ABN fails the checksum', function (): void {
-        $matches = NameMatch::listFromPayload(abrPayload('names-search.jsonp'));
-
-        expect(array_map(fn (NameMatch $match): string => $match->name, $matches))
+            ->toBe(['51824753556', '53004085616', '83914571673'])
+            ->and(array_map(fn (NameMatch $match): string => $match->name, $matches))
             ->not->toContain('Example Invalid Pty Ltd');
     });
 
-    it('maps every field of an entry', function (): void {
-        $match = NameMatch::listFromPayload(abrPayload('names-search.jsonp'))[0];
+    it('maps every field of a match', function (int $position, string $abn, string $name, string $nameType, ?State $state, ?string $postcode, int $score, bool $isCurrent): void {
+        $match = NameMatch::listFromPayload(abrPayload('names-search.jsonp'))[$position];
 
-        expect($match->abn)->toBeInstanceOf(Abn::class)
-            ->and($match->abn->value)->toBe('51824753556')
-            ->and($match->name)->toBe('Example Holdings Pty Ltd')
-            ->and($match->nameType)->toBe('Entity Name')
-            ->and($match->state)->toBe(State::ACT)
-            ->and($match->postcode)->toBeInstanceOf(Postcode::class)
-            ->and($match->postcode?->value)->toBe('2600')
-            ->and($match->score)->toBe(100)
-            ->and($match->isCurrent)->toBeTrue();
-    });
-
-    it('maps a former business name', function (): void {
-        $match = NameMatch::listFromPayload(abrPayload('names-search.jsonp'))[1];
-
-        expect($match->abn->value)->toBe('53004085616')
-            ->and($match->name)->toBe('Example Trading Co')
-            ->and($match->nameType)->toBe('Business Name')
-            ->and($match->state)->toBe(State::NSW)
-            ->and($match->postcode?->value)->toBe('2000')
-            ->and($match->score)->toBe(94)
-            ->and($match->isCurrent)->toBeFalse();
-    });
-
-    it('maps an empty state and postcode to null', function (): void {
-        $match = NameMatch::listFromPayload(abrPayload('names-search.jsonp'))[2];
-
-        expect($match->abn->value)->toBe('83914571673')
-            ->and($match->name)->toBe('Example Services')
-            ->and($match->nameType)->toBe('Trading Name')
-            ->and($match->state)->toBeNull()
-            ->and($match->postcode)->toBeNull()
-            ->and($match->score)->toBe(88)
-            ->and($match->isCurrent)->toBeTrue();
-    });
+        expect($match->abn->value)->toBe($abn)
+            ->and($match->name)->toBe($name)
+            ->and($match->nameType)->toBe($nameType)
+            ->and($match->state)->toBe($state)
+            ->and($match->postcode?->value)->toBe($postcode)
+            ->and($match->score)->toBe($score)
+            ->and($match->isCurrent)->toBe($isCurrent);
+    })->with([
+        // Position in the result, ABN, name, name type, state, postcode, score, current.
+        'a current entity name' => [0, '51824753556', 'Example Holdings Pty Ltd', 'Entity Name', State::ACT, '2600', 100, true],
+        'a former business name' => [1, '53004085616', 'Example Trading Co', 'Business Name', State::NSW, '2000', 94, false],
+        'a trading name with an empty state and postcode' => [2, '83914571673', 'Example Services', 'Trading Name', null, null, 88, true],
+    ]);
 
     it('maps an unknown state or invalid postcode to null', function (): void {
         $match = NameMatch::listFromPayload(['Names' => [
@@ -101,28 +51,37 @@ describe('listFromPayload()', function (): void {
             nameSearchEntry(['Abn' => '83914571673', 'Name' => 'Example Services']),
         ]]);
 
-        expect($matches)->toHaveCount(2)
-            ->and(array_keys($matches))->toBe([0, 1])
+        expect(array_keys($matches))->toBe([0, 1])
             ->and($matches[0]->name)->toBe('Example Trading Co')
             ->and($matches[1]->name)->toBe('Example Services');
-    })->with('unusable entries');
+    })->with([
+        'an ABN that fails the checksum' => fn (): array => nameSearchEntry(['Abn' => '51824753557']),
+        'an ABN that is too short' => fn (): array => nameSearchEntry(['Abn' => '5182475355']),
+        'an ABN with a letter' => fn (): array => nameSearchEntry(['Abn' => '5182475355a']),
+        'an empty ABN' => fn (): array => nameSearchEntry(['Abn' => '']),
+        'a null ABN' => fn (): array => nameSearchEntry(['Abn' => null]),
+        'no ABN' => fn (): array => array_diff_key(nameSearchEntry(), ['Abn' => true]),
+        'a string instead of an object' => 'Example Holdings Pty Ltd',
+        'a number instead of an object' => 42,
+        'null instead of an object' => null,
+    ]);
 
     it('returns an empty list when there are no names', function (array $payload): void {
         expect(NameMatch::listFromPayload($payload))->toBe([]);
-    })->with('payloads without names');
-
-    it('returns an empty list for a not-found or error response', function (string $fixture): void {
-        expect(NameMatch::listFromPayload(abrPayload($fixture)))->toBe([]);
     })->with([
-        'ABN not found' => 'abn-not-found.jsonp',
-        'service error' => 'error.jsonp',
+        'an empty payload' => [[]],
+        'no Names field' => [['Message' => '']],
+        'null Names' => [['Message' => '', 'Names' => null]],
+        'an empty Names list' => [['Message' => 'No records found', 'Names' => []]],
+        'Names as a string' => [['Message' => '', 'Names' => 'Example Holdings Pty Ltd']],
+        'a not-found response' => fn (): array => abrPayload('abn-not-found.jsonp'),
+        'a service error response' => fn (): array => abrPayload('error.jsonp'),
     ]);
 });
 
 describe('missing or unexpected fields', function (): void {
     it('falls back to a default instead of failing', function (string $field, mixed $value, string $property, mixed $default): void {
-        $entry = nameSearchEntry([$field => $value]);
-        $matches = NameMatch::listFromPayload(['Names' => [$entry]]);
+        $matches = NameMatch::listFromPayload(['Names' => [nameSearchEntry([$field => $value])]]);
 
         expect($matches)->toHaveCount(1)
             ->and($matches[0]->{$property})->toBe($default);
