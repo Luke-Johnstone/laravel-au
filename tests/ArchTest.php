@@ -30,3 +30,17 @@ arch('support classes are readonly')
     ->expect('EastpointLabs\LaravelAu\Support')
     ->classes()
     ->toBeReadonly();
+
+arch('ABN Lookup data objects are framework-free')
+    ->expect('EastpointLabs\LaravelAu\Abr\Data')
+    ->not->toUse(['Illuminate', 'Carbon']);
+
+arch('ABN Lookup data objects are final')
+    ->expect('EastpointLabs\LaravelAu\Abr\Data')
+    ->classes()
+    ->toBeFinal();
+
+arch('ABN Lookup data objects are readonly')
+    ->expect('EastpointLabs\LaravelAu\Abr\Data')
+    ->classes()
+    ->toBeReadonly();

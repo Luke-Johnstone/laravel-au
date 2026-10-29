@@ -31,3 +31,8 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   field, including each item in a nested array.
 - Australian English validation messages under the `au::validation` translation namespace,
   publishable with the `au-translations` tag.
+- `AbnDetails` and `NameMatch` data objects for ABN Lookup records and name search results.
+  `AbnDetails` has `isActive()`, `isGstRegistered()`, `isSuppressed()`, `displayName()` and
+  `toArray()`. A suppressed ABN has no names or address, so its `displayName()` is `null`.
+- `AbrException` for ABN Lookup errors, and its subclass `MissingGuidException`, whose
+  message explains how to set `ABR_GUID`.
