@@ -61,3 +61,8 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   field.
 - Default field labels such as "ABN" rather than "Abn", under the `au::fields` translation
   namespace and publishable with the `au-translations` tag.
+- Eloquent casts `AsAbn`, `AsAcn`, `AsBsb`, `AsPhoneNumber` and `AsPostcode`, which store the
+  canonical string and read it back as the value object. Invalid values throw
+  `InvalidValueException` when set or read.
+- `AsPhoneNumber` stores E.164 or national digits, set by `phone.store_as` in `config/au.php`,
+  the same setting the Filament phone field uses.

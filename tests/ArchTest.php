@@ -21,6 +21,18 @@ arch('support classes use only plain PHP and the package\'s exceptions')
     ->expect('EastpointLabs\LaravelAu\Support')
     ->toOnlyUse(['EastpointLabs\LaravelAu\Support', 'EastpointLabs\LaravelAu\Exceptions']);
 
+// Laravel is narrowed to what a cast needs, including the config() helper, which counts as a
+// use. Allowing all of 'Illuminate' would mean parsing all of Laravel, as a blocklist would.
+arch('casts use only Laravel, the value objects and the package\'s exceptions')
+    ->expect('EastpointLabs\LaravelAu\Casts')
+    ->toOnlyUse([
+        'Illuminate\Contracts',
+        'Illuminate\Database\Eloquent\Model',
+        'config',
+        'EastpointLabs\LaravelAu\Support',
+        'EastpointLabs\LaravelAu\Exceptions',
+    ]);
+
 // Each rule needs its own classes() filter: it skips enums, and chaining a
 // second expectation onto the same arch() call would drop the filter.
 arch('support classes are final')

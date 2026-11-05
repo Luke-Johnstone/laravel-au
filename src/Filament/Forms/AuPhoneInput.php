@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace EastpointLabs\LaravelAu\Filament\Forms;
 
+use EastpointLabs\LaravelAu\Casts\AsPhoneNumber;
 use EastpointLabs\LaravelAu\Filament\Label;
 use EastpointLabs\LaravelAu\Rules\AuPhone;
 use EastpointLabs\LaravelAu\Support\PhoneNumber;
@@ -68,19 +69,13 @@ class AuPhoneInput extends TextInput
             : $this->phoneTypes;
     }
 
+    /**
+     * Stored the same way as the AsPhoneNumber cast stores it.
+     */
     private static function storedValue(string $state): string
     {
         $phone = PhoneNumber::tryFrom($state);
 
-        if ($phone === null) {
-            return $state;
-        }
-
-        if (config('au.phone.store_as') === 'national') {
-            return $phone->value;
-        }
-
-        // Service numbers can't be dialled from overseas, so they have no E.164 form.
-        return $phone->toE164() ?? $phone->value;
+        return $phone === null ? $state : AsPhoneNumber::storable($phone);
     }
 }

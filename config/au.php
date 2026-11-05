@@ -40,8 +40,10 @@ return [
     | Phone numbers
     |--------------------------------------------------------------------------
     |
-    | How the Filament phone field stores numbers: "e164" (+61491570006)
-    | or "national" (0491570006).
+    | How the Filament phone field and the AsPhoneNumber cast store numbers:
+    | "e164" (+61491570006) or "national" (0491570006). Service numbers such
+    | as 1300 975 707 have no E.164 form, so they're always stored as
+    | national digits.
     |
     */
 

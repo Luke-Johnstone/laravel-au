@@ -439,6 +439,94 @@ PhoneNumber::from('1300-975-707')->format(); // "1300 975 707"
 PhoneNumber::from('13 1234')->format();      // "13 12 34"
 ```
 
+### Eloquent casts
+
+The casts store a value object's canonical string in the database and give you the value object
+back when you read the attribute. `State` doesn't need a cast from the package: it's a
+string-backed enum, so Laravel's enum cast handles it.
+
+```php
+use EastpointLabs\LaravelAu\Casts\AsAbn;
+use EastpointLabs\LaravelAu\Casts\AsAcn;
+use EastpointLabs\LaravelAu\Casts\AsBsb;
+use EastpointLabs\LaravelAu\Casts\AsPhoneNumber;
+use EastpointLabs\LaravelAu\Casts\AsPostcode;
+use EastpointLabs\LaravelAu\Support\State;
+use Illuminate\Database\Eloquent\Model;
+
+class Supplier extends Model
+{
+    protected function casts(): array
+    {
+        return [
+            'abn'      => AsAbn::class,
+            'acn'      => AsAcn::class,
+            'bsb'      => AsBsb::class,
+            'phone'    => AsPhoneNumber::class,
+            'postcode' => AsPostcode::class,
+            'state'    => State::class, // Laravel's enum cast
+        ];
+    }
+}
+```
+
+Set an attribute to a value object, or to a string in any form its `from()` accepts. The cast
+stores the canonical value, and `null` stores `null`. Reading gives back the value object, and
+a stored `null` reads as `null`:
+
+```php
+use EastpointLabs\LaravelAu\Support\Postcode;
+
+$supplier = new Supplier;
+
+$supplier->abn = '51 824 753 556';            // stored as "51824753556"
+$supplier->postcode = Postcode::from('0800'); // stored as "0800"
+$supplier->acn = null;                        // stored as null
+
+$supplier->abn->format(); // "51 824 753 556"
+$supplier->acn;           // null
+
+$supplier->toArray(); // ['abn' => '51824753556', 'postcode' => '0800', 'acn' => null]
+```
+
+`toArray()` and `toJson()` hold the stored strings, not objects, so an API response shows the
+same values as the database.
+
+A row stored in another form, such as an ABN saved with spaces before you added the cast, reads
+normally and isn't marked as changed just because you read it. It's stored in canonical form the
+next time you set that attribute.
+
+Setting an invalid value throws `InvalidValueException`, as `from()` does. Check input with the
+[validation rules](#validation-rules) first, so people see a message rather than an error.
+Reading a stored value that isn't valid throws too, as Laravel's enum cast does for a value
+that isn't a case. Clean up existing data before you add a cast to a column that already has
+rows.
+
+Use string columns. ACNs, BSBs, postcodes and national phone numbers can start with `0`, which
+an integer column drops. A stored integer is read as its digits, so an ABN in an integer column
+still works, but an ACN that has lost its leading zeros isn't valid and throws.
+
+#### Storing phone numbers
+
+`AsPhoneNumber` stores numbers in E.164, such as `+61491570006`, by default. Set
+`phone.store_as` in `config/au.php` to `national` to store national digits (`0491570006`)
+instead. The [Filament phone field](#filament-fields) uses the same setting, so the two agree.
+Service numbers have no E.164 form, so they're always stored as national digits.
+
+```php
+$supplier->phone = '0491 570 006'; // stored as "+61491570006"
+
+$supplier->phone->value;    // "0491570006"
+$supplier->phone->format(); // "0491 570 006"
+
+$supplier->phone = '1300 975 707'; // stored as "1300975707"
+```
+
+The cast reads either form back as the same `PhoneNumber`, so rows stored before you change the
+setting still load. `toArray()` and `toJson()` follow the setting too, so a phone number appears
+as `+61491570006` by default. That differs from `json_encode()` on a `PhoneNumber` itself, which
+gives the national digits.
+
 ### ABN Lookup
 
 `Abr` looks up businesses on the Australian Business Register through its free ABN Lookup web
@@ -765,7 +853,6 @@ with the `au-translations` tag (see [Installation](#installation)) and edit
 
 The rest of the API is documented here as each feature lands:
 
-- **Eloquent casts:** store canonical values and read them back as value objects.
 - **Active ABN rule:** `abn_active`, which checks the ABN is active on the Australian Business
   Register.
 - **Faker provider:** `fake()->abn()`, `fake()->auMobileNumber()` and friends for factories.
