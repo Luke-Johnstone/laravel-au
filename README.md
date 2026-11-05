@@ -457,10 +457,12 @@ Abr::searchByName('Example Holdings', maxResults: 20);
 
 `abn()` and `acn()` take a string in any form the value objects accept, or an `Abn` or `Acn`
 object. `searchByName()` searches entity, business and trading names, and returns the matches
-in the order ABN Lookup ranks them. `maxResults` defaults to 10 and is kept between 1 and 200.
+in the order ABN Lookup ranks them. `maxResults` defaults to 10 and is kept between 1 and 200
+(`AbrClient::MAX_RESULTS`).
 
 In application code, inject the `LooksUpAbns` contract instead of using the facade. It resolves
-to the same client, and a test can bind its own implementation in its place.
+to the same client, and in tests `Abr::fake()` replaces it (see
+[Testing your app](#testing-your-app)).
 
 ```php
 use EastpointLabs\LaravelAu\Abr\Contracts\LooksUpAbns;
@@ -555,12 +557,76 @@ The GUID never appears in exception messages, stack trace arguments or cache key
 takes it as a query parameter, though, so tools that record outgoing HTTP requests, such as
 Laravel Telescope, will see it in the request URL.
 
+#### Testing your app
+
+`Abr::fake()` replaces ABN Lookup with a fake for the rest of the test. The fake answers from
+details you give it and never sends a request. It's bound to the `LooksUpAbns` contract, so
+code that injects the contract gets it too, not just code that uses the facade.
+
+This test checks the `SupplierCheck` class from above:
+
+```php
+use EastpointLabs\LaravelAu\Facades\Abr;
+
+it('only accepts active suppliers', function (): void {
+    Abr::fake([
+        '51824753556' => ['EntityName' => 'Example Holdings Pty Ltd'],
+        '83914571673' => ['AbnStatus' => 'Cancelled'],
+    ]);
+
+    $check = app(SupplierCheck::class);
+
+    expect($check->isActive('51 824 753 556'))->toBeTrue()
+        ->and($check->isActive('83 914 571 673'))->toBeFalse();
+
+    Abr::assertLookedUp('51 824 753 556');
+    Abr::assertLookupCount(2);
+});
+```
+
+Each key is an ABN. Each value is an `AbnDetails` object, or an array of ABN Lookup fields,
+such as `EntityName`, `AbnStatus` and `Acn`, merged over an active record for that ABN. `acn()`
+finds configured details by their `Acn` field, so set `'Acn' => '004085616'` on
+`53 004 085 616` to look that company up by its ACN.
+
+An ABN or ACN you haven't configured returns `null`, and a name search returns no matches.
+After `preventStrayLookups()`, an unconfigured ABN or ACN throws a `RuntimeException` instead,
+so a test can't pass by accident. It isn't an `AbrException`, so code that handles ABN Lookup
+errors won't hide it.
+
+Input is checked like the real client checks it, so an invalid ABN or ACN still throws
+`InvalidValueException`.
+
+These methods set up other answers. Each returns the fake, so they chain:
+
+- `notFound(...$abns)`: these ABNs return `null`, even after `preventStrayLookups()`.
+- `suppressed($abn, $status = 'Active', $gst = false)`: this ABN returns suppressed details,
+  with a status and GST registration but no names or address.
+- `withNameMatches($matches)`: what `searchByName()` returns, whatever the name. Each match is
+  a `NameMatch`, or an array with the keys `Abn`, `Name`, `NameType`, `State`, `Postcode`,
+  `Score` and `IsCurrent`.
+- `failing()`: every lookup throws `AbrException`, for testing your error handling.
+
+```php
+Abr::fake(['51824753556' => ['EntityName' => 'Example Holdings Pty Ltd']])
+    ->suppressed('83 914 571 673', status: 'Cancelled')
+    ->notFound('53 004 085 616')
+    ->preventStrayLookups();
+```
+
+Assert on the lookups through the facade, or on the fake that `Abr::fake()` returns:
+
+- `assertLookedUp($abn)` and `assertNotLookedUp($abn)`: whether `abn()` was called with this
+  ABN. Only `abn()` calls count.
+- `assertNothingLookedUp()`: no `abn()`, `acn()` or `searchByName()` call was made.
+- `assertLookupCount($count)`: how many `abn()`, `acn()` and `searchByName()` calls were made in
+  all, including repeats.
+
 ### Planned for v1
 
 The rest of the API is documented here as each feature lands:
 
 - **Eloquent casts:** store canonical values and read them back as value objects.
-- **ABN Lookup fake:** `Abr::fake()` for testing your own code without calling ABN Lookup.
 - **Active ABN rule:** `abn_active`, which checks the ABN is active on the Australian Business
   Register.
 - **Faker provider:** `fake()->abn()`, `fake()->auMobileNumber()` and friends for factories.

@@ -27,7 +27,10 @@ use SensitiveParameter;
  */
 final readonly class AbrClient implements LooksUpAbns
 {
-    private const int MAX_RESULTS = 200;
+    /**
+     * The most name matches ABN Lookup returns for one search.
+     */
+    public const int MAX_RESULTS = 200;
 
     public function __construct(
         private Factory $http,

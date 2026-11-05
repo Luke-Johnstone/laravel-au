@@ -44,3 +44,8 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Caching of successful ABN and ACN lookups, for a day by default, configured with
   `ABR_CACHE_ENABLED`, `ABR_CACHE_STORE` and `ABR_CACHE_TTL`. Not-found results, errors and
   name searches aren't cached.
+- `Abr::fake()`, which binds an `AbrFake` to `LooksUpAbns` so tests can look up ABNs, ACNs and
+  names without sending a request. It can return not-found, suppressed and failing lookups, set
+  name search results and prevent stray lookups, and has `assertLookedUp()`,
+  `assertNotLookedUp()`, `assertNothingLookedUp()` and `assertLookupCount()`.
+- `AbrClient::MAX_RESULTS`, the most name matches ABN Lookup returns for one search (200).
