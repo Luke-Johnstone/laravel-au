@@ -3,13 +3,23 @@
 declare(strict_types=1);
 
 use EastpointLabs\LaravelAu\Abr\JsonpDecoder;
+use EastpointLabs\LaravelAu\Tests\Filament\Fixtures\TestForm;
 use EastpointLabs\LaravelAu\Tests\TestCase;
+use Filament\Forms\Components\Field;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Translation\PotentiallyTranslatedString;
+use Livewire\Features\SupportTesting\Testable;
+use Livewire\Livewire;
 
 pest()->extend(TestCase::class)->in(__DIR__);
+
+// CI also runs the suite without Filament installed, excluding this group.
+pest()->group('filament')->in('Filament');
+
+// Every Filament test gives the form its own fields.
+pest()->beforeEach(fn () => TestForm::forgetComponents())->in('Filament');
 
 /*
 |--------------------------------------------------------------------------
@@ -144,4 +154,54 @@ function nameSearchEntry(array $fields = []): array
         'Score' => 100,
         'State' => 'ACT',
     ], ...$fields];
+}
+
+/**
+ * Mount the Filament test form with the given fields, filled with the given state, e.g.
+ * testForm(fn () => [AbnInput::make('abn')], ['abn' => '51824753556']). The fields are built
+ * in a closure because Livewire builds the form again on every request.
+ *
+ * @param  Closure(): array<mixed>  $components
+ * @param  array<string, mixed>  $state
+ */
+function testForm(Closure $components, array $state = []): Testable
+{
+    // Build the fields once here, so a field that can't be built fails with its own error
+    // rather than one wrapped in Livewire's rendering of the form.
+    $components();
+
+    TestForm::using($components);
+
+    return Livewire::test(TestForm::class, ['state' => $state]);
+}
+
+/**
+ * The field with the given name on a mounted test form, e.g. formField($form, 'abn').
+ */
+function formField(Testable $form, string $name): Field
+{
+    $field = $form->instance()->getSchema('form')?->getFlatFields(withHidden: true)[$name] ?? null;
+
+    if (! $field instanceof Field) {
+        throw new RuntimeException("The test form has no field named [{$name}].");
+    }
+
+    return $field;
+}
+
+/**
+ * A log call as text: the message, then the context with any exception shown as its class and
+ * message, as a log line would show it. Use it to check what a log entry gives away.
+ *
+ * @param  array<array-key, mixed>  $context
+ */
+function loggedText(string $message, array $context = []): string
+{
+    array_walk_recursive($context, function (mixed &$value): void {
+        if ($value instanceof Throwable) {
+            $value = $value::class.': '.$value->getMessage();
+        }
+    });
+
+    return $message.' '.json_encode($context, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
 }

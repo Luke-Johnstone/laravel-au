@@ -15,9 +15,11 @@ arch('the core does not depend on Filament')
     ->not->toUse('Filament')
     ->ignoring('EastpointLabs\LaravelAu\Filament');
 
-arch('support classes are plain PHP with no Laravel dependency')
+// Allowlists rather than ->not->toUse('Illuminate'): they're stricter, and checking against a
+// blocklist means parsing all of Laravel, which takes most of PHP's default memory limit.
+arch('support classes use only plain PHP and the package\'s exceptions')
     ->expect('EastpointLabs\LaravelAu\Support')
-    ->not->toUse(['Illuminate', 'Filament']);
+    ->toOnlyUse(['EastpointLabs\LaravelAu\Support', 'EastpointLabs\LaravelAu\Exceptions']);
 
 // Each rule needs its own classes() filter: it skips enums, and chaining a
 // second expectation onto the same arch() call would drop the filter.
@@ -31,9 +33,13 @@ arch('support classes are readonly')
     ->classes()
     ->toBeReadonly();
 
-arch('ABN Lookup data objects are framework-free')
+arch('ABN Lookup data objects use only plain PHP and the package\'s value objects')
     ->expect('EastpointLabs\LaravelAu\Abr\Data')
-    ->not->toUse(['Illuminate', 'Carbon']);
+    ->toOnlyUse([
+        'EastpointLabs\LaravelAu\Abr\Data',
+        'EastpointLabs\LaravelAu\Support',
+        'EastpointLabs\LaravelAu\Exceptions',
+    ]);
 
 arch('ABN Lookup data objects are final')
     ->expect('EastpointLabs\LaravelAu\Abr\Data')

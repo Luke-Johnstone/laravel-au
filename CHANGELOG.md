@@ -49,3 +49,15 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   name search results and prevent stray lookups, and has `assertLookedUp()`,
   `assertNotLookedUp()`, `assertNothingLookedUp()` and `assertLookupCount()`.
 - `AbrClient::MAX_RESULTS`, the most name matches ABN Lookup returns for one search (200).
+- Optional Filament 4 and 5 form fields `AbnInput`, `AcnInput`, `BsbInput`, `AuPhoneInput`,
+  `AuPostcodeInput`, `StateSelect` and `AuAddressFields`. They mask and validate input, save
+  canonical values and show stored values formatted.
+- `AbnInput::lookup()`, which fills another field with the business name from ABN Lookup when
+  the ABN field loses focus. A failed lookup is logged without the GUID and leaves the form as
+  it is.
+- `AuPhoneInput::mobileOnly()`, `landlineOnly()` and `allowServiceNumbers()`. The field saves
+  numbers in E.164 or as national digits, set by `phone.store_as` in `config/au.php`.
+- `AuPostcodeInput::forState()`, which checks the postcode against the state chosen in another
+  field.
+- Default field labels such as "ABN" rather than "Abn", under the `au::fields` translation
+  namespace and publishable with the `au-translations` tag.

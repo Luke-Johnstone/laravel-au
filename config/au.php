@@ -40,8 +40,8 @@ return [
     | Phone numbers
     |--------------------------------------------------------------------------
     |
-    | How the Filament phone field stores numbers: "e164" (+61412345678)
-    | or "national" (0412345678).
+    | How the Filament phone field stores numbers: "e164" (+61491570006)
+    | or "national" (0491570006).
     |
     */
 

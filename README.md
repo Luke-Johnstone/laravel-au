@@ -44,7 +44,7 @@ composer require eastpointlabs/laravel-au
 ```
 
 Publish the config file if you want to change the defaults, and the translations if you want to
-change or translate the validation messages:
+change or translate the validation messages or Filament field labels:
 
 ```bash
 php artisan vendor:publish --tag="au-config"
@@ -622,6 +622,145 @@ Assert on the lookups through the facade, or on the fake that `Abr::fake()` retu
 - `assertLookupCount($count)`: how many `abn()`, `acn()` and `searchByName()` calls were made in
   all, including repeats.
 
+### Filament fields
+
+If your app uses Filament 4 or 5, these form fields bring the package's validation, formatting
+and ABN Lookup into your forms. Filament is optional: the package doesn't require it, and
+everything else works without it. The fields are building blocks for your own resource forms.
+The package adds no pages, resources or plugin, so there's nothing to register.
+
+```php
+use EastpointLabs\LaravelAu\Filament\Forms\AbnInput;
+use EastpointLabs\LaravelAu\Filament\Forms\AcnInput;
+use EastpointLabs\LaravelAu\Filament\Forms\AuAddressFields;
+use EastpointLabs\LaravelAu\Filament\Forms\AuPhoneInput;
+use EastpointLabs\LaravelAu\Filament\Forms\BsbInput;
+use Filament\Forms\Components\TextInput;
+use Filament\Schemas\Schema;
+
+public static function form(Schema $schema): Schema
+{
+    return $schema->components([
+        AbnInput::make('abn')->lookup('business_name'),
+        TextInput::make('business_name'),
+        AcnInput::make('acn'),
+        BsbInput::make('bsb'),
+        AuPhoneInput::make('phone')->mobileOnly(),
+        AuAddressFields::make('billing_'),
+    ]);
+}
+```
+
+The fields live in `EastpointLabs\LaravelAu\Filament\Forms`, and each one works with just
+`make()`:
+
+- `AbnInput` is masked as `51 824 753 556`, checked with the `Abn` rule and saved as 11 digits.
+- `AcnInput` is masked as `004 085 616`, checked with the `Acn` rule and saved as 9 digits.
+- `BsbInput` is masked as `062-000`, checked with the `Bsb` rule and saved as 6 digits.
+- `AuPhoneInput` is a `tel` input that accepts mobiles and landlines. It saves in E.164, such as
+  `+61491570006`, or as national digits (`0491570006`) when `phone.store_as` in `config/au.php`
+  is `national`. Service numbers have no E.164 form, so they're always saved as national
+  digits.
+- `AuPostcodeInput` takes up to 4 characters, brings up the numeric keypad and is checked with
+  the `AuPostcode` rule. It's saved as a string, so `0800` keeps its leading zero.
+- `StateSelect` lists the eight states and territories by name, and saves the code (`NSW`,
+  `VIC`...).
+
+When a form loads a stored ABN, ACN, BSB or phone number, the field shows it formatted, such as
+`51 824 753 556` or `0491 570 006`. A stored value that isn't valid is shown as it is.
+
+#### Phone and postcode options
+
+`AuPhoneInput` takes the same choices as the [`AuPhone` rule](#phone-number-rules):
+
+```php
+AuPhoneInput::make('phone');                                      // mobile or landline
+AuPhoneInput::make('phone')->mobileOnly();                        // mobile only
+AuPhoneInput::make('phone')->landlineOnly();                      // landline only
+AuPhoneInput::make('phone')->allowServiceNumbers();               // mobile, landline or service
+AuPhoneInput::make('phone')->mobileOnly()->allowServiceNumbers(); // mobile or service
+```
+
+`allowServiceNumbers()` adds 13, 1300 and 1800 numbers, whichever order you call it in.
+
+`AuPostcodeInput::forState()` checks the postcode against the state chosen in another field:
+
+```php
+StateSelect::make('state'),
+AuPostcodeInput::make('postcode')->forState('state'),
+```
+
+With `NSW` chosen, `3000` fails with "The postcode must be in New South Wales." While the state
+field is empty, or holds something that isn't a state, a postcode from any state passes.
+`StateSelect` reports a bad state itself.
+
+#### Address fields
+
+`AuAddressFields::make()` returns a two-column `Grid` holding the five fields of an address,
+named with the prefix you give it. `AuAddressFields::make('billing_')` gives:
+
+| Field                   | Label          | Required |
+|-------------------------|----------------|----------|
+| `billing_street_line_1` | Street address | Yes      |
+| `billing_street_line_2` | Address line 2 | No       |
+| `billing_suburb`        | Suburb         | Yes      |
+| `billing_state`         | State          | Yes      |
+| `billing_postcode`      | Postcode       | Yes      |
+
+The street lines and suburb take the full width, with the state and postcode side by side. The
+state is a `StateSelect`, and the postcode is checked against it with `forState()`. Without a
+prefix, the fields are named `street_line_1`, `street_line_2` and so on. It's an ordinary
+Filament `Grid`, so methods such as `->columnSpanFull()` chain on.
+
+#### Filling in the business name
+
+`lookup()` saves people typing a name the register already has. In the example above,
+`AbnInput::make('abn')->lookup('business_name')` looks the ABN up when the field loses focus,
+and fills `business_name` with the first business name, else the entity name. That replaces
+anything already in the field. It needs the `ABR_GUID` from [Installation](#installation).
+
+Only a valid ABN is looked up, and a lookup never breaks the form. When the ABN isn't on the
+register, is suppressed and so has no name, or can't be looked up because no GUID is set or ABN
+Lookup is unreachable, the other field is left as it is. A failed lookup is logged as a warning,
+without the GUID. Successful lookups are cached like any other (see
+[Caching and settings](#caching-and-settings)), so looking up the same ABN again sends no
+request.
+
+In tests, use `Abr::fake()` so no request is sent (see [Testing your app](#testing-your-app)).
+For a resource page such as `CreateSupplier`:
+
+```php
+use EastpointLabs\LaravelAu\Facades\Abr;
+use Livewire\Livewire;
+
+it('fills the business name from the ABN', function (): void {
+    Abr::fake(['51824753556' => ['EntityName' => 'Example Holdings Pty Ltd']]);
+
+    Livewire::test(CreateSupplier::class)
+        ->fillForm(['abn' => '51 824 753 556'])
+        ->assertSchemaStateSet(['business_name' => 'Example Holdings Pty Ltd']);
+});
+```
+
+Only ABN Lookup errors are caught, so after `preventStrayLookups()` a test that looks up an ABN
+you haven't configured still fails.
+
+#### Labels
+
+Filament makes a label from the field name, so `abn` would be labelled "Abn". These fields set
+their own, whatever the field is called: "ABN", "ACN", "BSB", "Phone", "Postcode" and "State",
+plus "Street address", "Address line 2" and "Suburb" in `AuAddressFields`. `->label()` still
+overrides them:
+
+```php
+AbnInput::make('supplier_abn')->label('Supplier ABN'),
+```
+
+The labels come from the package's translations, under `au::fields`, and are translated when
+shown, so the current locale applies. To change or translate them, publish the translations
+with the `au-translations` tag (see [Installation](#installation)) and edit
+`lang/vendor/au/en/fields.php`.
+
 ### Planned for v1
 
 The rest of the API is documented here as each feature lands:
@@ -630,9 +769,8 @@ The rest of the API is documented here as each feature lands:
 - **Active ABN rule:** `abn_active`, which checks the ABN is active on the Australian Business
   Register.
 - **Faker provider:** `fake()->abn()`, `fake()->auMobileNumber()` and friends for factories.
-- **Filament fields:** `AbnInput` (with optional lookup that fills the business name),
-  `AcnInput`, `BsbInput`, `AuPhoneInput`, `AuPostcodeInput`, `StateSelect` and
-  `AuAddressFields`, plus matching table columns and infolist entries.
+- **Filament table columns and infolist entries:** show stored ABNs, ACNs, BSBs, phone numbers
+  and states formatted, to match the form fields.
 - **Demo app:** `composer serve` starts a Filament panel showing every field.
 
 ## Testing
