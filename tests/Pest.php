@@ -5,6 +5,8 @@ declare(strict_types=1);
 use EastpointLabs\LaravelAu\Abr\JsonpDecoder;
 use EastpointLabs\LaravelAu\Tests\TestCase;
 use Illuminate\Contracts\Validation\ValidationRule;
+use Illuminate\Http\Client\Request;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Translation\PotentiallyTranslatedString;
 
 pest()->extend(TestCase::class)->in(__DIR__);
@@ -53,6 +55,46 @@ function expectNoGuidOrUrl(string $message): void
         ->not->toContain('://')
         ->not->toContain('abr.business.gov.au')
         ->not->toContain('guid=');
+}
+
+/**
+ * Assert that no frame in the package's part of the stack trace was given the test GUID. The
+ * trace only has arguments while zend.exception_ignore_args is off, so that's checked too.
+ */
+function expectNoGuidInTrace(Throwable $exception): void
+{
+    $frames = array_filter(
+        $exception->getTrace(),
+        fn (array $frame): bool => str_starts_with($frame['class'] ?? '', 'EastpointLabs\\LaravelAu\\'),
+    );
+
+    expect(array_merge(...array_column($frames, 'args')))->not->toBeEmpty()
+        ->and(print_r($frames, true))->not->toContain('testing-guid')
+        ->and($exception->getTraceAsString())->not->toContain('testing-guid');
+}
+
+/**
+ * Assert that exactly one HTTP request was sent: a GET to the given URL (without its query
+ * string) carrying exactly the given query parameters, in any order.
+ *
+ * @param  array<string, string>  $query
+ */
+function expectOneGetRequest(string $url, array $query): void
+{
+    Http::assertSentCount(1);
+
+    Http::assertSent(function (Request $request) use ($url, $query): bool {
+        parse_str((string) parse_url($request->url(), PHP_URL_QUERY), $sent);
+
+        ksort($sent);
+        ksort($query);
+
+        expect($request->method())->toBe('GET')
+            ->and(explode('?', $request->url(), 2)[0])->toBe($url)
+            ->and($sent)->toBe($query);
+
+        return true;
+    });
 }
 
 /**

@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace EastpointLabs\LaravelAu;
 
 use Closure;
+use EastpointLabs\LaravelAu\Abr\AbrClient;
+use EastpointLabs\LaravelAu\Abr\Contracts\LooksUpAbns;
 use EastpointLabs\LaravelAu\Rules\Abn;
 use EastpointLabs\LaravelAu\Rules\AbnOrAcn;
 use EastpointLabs\LaravelAu\Rules\Acn;
@@ -13,9 +15,12 @@ use EastpointLabs\LaravelAu\Rules\AuPostcode;
 use EastpointLabs\LaravelAu\Rules\Bsb;
 use EastpointLabs\LaravelAu\Rules\StringRule;
 use EastpointLabs\LaravelAu\Support\PhoneType;
+use Illuminate\Contracts\Cache\Factory as CacheFactory;
+use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Contracts\Translation\Translator;
 use Illuminate\Contracts\Validation\Factory as ValidationFactory;
 use Illuminate\Contracts\Validation\ValidationRule;
+use Illuminate\Http\Client\Factory as HttpFactory;
 use InvalidArgumentException;
 use Spatie\LaravelPackageTools\Package;
 use Spatie\LaravelPackageTools\PackageServiceProvider;
@@ -31,6 +36,28 @@ class LaravelAuServiceProvider extends PackageServiceProvider
             ->name('laravel-au')
             ->hasConfigFile('au')
             ->hasTranslations();
+    }
+
+    public function packageRegistered(): void
+    {
+        $this->app->singleton(AbrClient::class, function (Application $app): AbrClient {
+            $config = $app->make('config');
+            $guid = $config->get('au.abr.guid');
+            $store = $config->get('au.abr.cache.store');
+
+            return new AbrClient(
+                http: $app->make(HttpFactory::class),
+                cache: $app->make(CacheFactory::class)->store(is_string($store) ? $store : null),
+                guid: is_string($guid) ? $guid : null,
+                baseUrl: $config->string('au.abr.base_url', 'https://abr.business.gov.au/json'),
+                timeout: $config->integer('au.abr.timeout', 10),
+                cacheEnabled: $config->boolean('au.abr.cache.enabled', true),
+                cacheTtl: $config->integer('au.abr.cache.ttl', 86400),
+            );
+        });
+
+        // Bound separately rather than aliased, so a test fake can replace the contract alone.
+        $this->app->bind(LooksUpAbns::class, fn (Application $app): LooksUpAbns => $app->make(AbrClient::class));
     }
 
     public function packageBooted(): void

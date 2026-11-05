@@ -6,6 +6,7 @@ namespace EastpointLabs\LaravelAu\Abr;
 
 use EastpointLabs\LaravelAu\Exceptions\AbrException;
 use JsonException;
+use SensitiveParameter;
 
 /**
  * Decodes ABN Lookup's JSONP responses, which wrap the JSON in a callback: `callback({...})`.
@@ -18,13 +19,14 @@ final readonly class JsonpDecoder
 
     /**
      * Strip a single `name(...)` wrapper, with an optional trailing semicolon, and decode the
-     * JSON inside. Plain JSON is accepted too.
+     * JSON inside. Plain JSON is accepted too. The body is hidden from stack traces, because an
+     * error page can repeat the request URL, GUID included.
      *
      * @return array<array-key, mixed>
      *
      * @throws AbrException when the body isn't a JSON object or array
      */
-    public static function decode(string $body): array
+    public static function decode(#[SensitiveParameter] string $body): array
     {
         $json = trim($body);
 

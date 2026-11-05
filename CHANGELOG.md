@@ -36,3 +36,11 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `toArray()`. A suppressed ABN has no names or address, so its `displayName()` is `null`.
 - `AbrException` for ABN Lookup errors, and its subclass `MissingGuidException`, whose
   message explains how to set `ABR_GUID`.
+- `AbrClient`, an ABN Lookup client with `abn()`, `acn()` and `searchByName()`. It checks input
+  before sending a request, uses the `ABR_TIMEOUT` timeout, doesn't retry, and keeps the GUID
+  out of exception messages, stack traces and cache keys.
+- `LooksUpAbns` contract for ABN Lookup, the type to inject in application code.
+- `Abr` facade, which resolves `LooksUpAbns`.
+- Caching of successful ABN and ACN lookups, for a day by default, configured with
+  `ABR_CACHE_ENABLED`, `ABR_CACHE_STORE` and `ABR_CACHE_TTL`. Not-found results, errors and
+  name searches aren't cached.

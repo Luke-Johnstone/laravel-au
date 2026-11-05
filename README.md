@@ -439,13 +439,128 @@ PhoneNumber::from('1300-975-707')->format(); // "1300 975 707"
 PhoneNumber::from('13 1234')->format();      // "13 12 34"
 ```
 
+### ABN Lookup
+
+`Abr` looks up businesses on the Australian Business Register through its free ABN Lookup web
+services. It needs the `ABR_GUID` from [Installation](#installation). The validation rules and
+value objects don't, so you can skip the GUID if those are all you use.
+
+```php
+use EastpointLabs\LaravelAu\Facades\Abr;
+
+Abr::abn('51 824 753 556');            // ?AbnDetails
+Abr::acn('004 085 616');               // ?AbnDetails for the company's ABN
+Abr::searchByName('Example Holdings'); // list<NameMatch>
+
+Abr::searchByName('Example Holdings', maxResults: 20);
+```
+
+`abn()` and `acn()` take a string in any form the value objects accept, or an `Abn` or `Acn`
+object. `searchByName()` searches entity, business and trading names, and returns the matches
+in the order ABN Lookup ranks them. `maxResults` defaults to 10 and is kept between 1 and 200.
+
+In application code, inject the `LooksUpAbns` contract instead of using the facade. It resolves
+to the same client, and a test can bind its own implementation in its place.
+
+```php
+use EastpointLabs\LaravelAu\Abr\Contracts\LooksUpAbns;
+
+final class SupplierCheck
+{
+    public function __construct(private LooksUpAbns $abr) {}
+
+    public function isActive(string $abn): bool
+    {
+        return $this->abr->abn($abn)?->isActive() ?? false;
+    }
+}
+```
+
+#### Reading the results
+
+`abn()` and `acn()` return `null` when the number isn't on the register, so check for it first:
+
+```php
+$details = Abr::abn('51 824 753 556');
+
+if ($details !== null) {
+    $details->displayName();     // ?string: the first business name, else the entity name
+    $details->isActive();        // bool: the status is "Active"
+    $details->isGstRegistered(); // bool
+    $details->isSuppressed();    // bool
+}
+```
+
+`AbnDetails` also holds the register's fields as properties: `abn`, `acn`, `status`,
+`statusEffectiveFrom`, `entityName`, `entityTypeCode`, `entityTypeName`, `businessNames`,
+`gstRegisteredFrom`, `postcode` and `state`. Numbers are value objects, dates are
+`DateTimeImmutable` and the state is a `State`. `toArray()` returns them all as plain values.
+
+An ABN holder can ask the register to suppress their details. A suppressed ABN still returns
+`AbnDetails`, with its status and GST registration, but no names or address. `isSuppressed()`
+is then `true` and `displayName()` returns `null`, so don't assume there's always a name to
+show.
+
+Each name search result is a `NameMatch`:
+
+```php
+foreach (Abr::searchByName('Example Holdings') as $match) {
+    $match->abn;       // Abn
+    $match->name;      // string: the name that matched
+    $match->nameType;  // string, such as "Entity Name" or "Business Name"
+    $match->state;     // ?State
+    $match->postcode;  // ?Postcode
+    $match->score;     // int: higher is a closer match
+    $match->isCurrent; // bool
+}
+```
+
+#### Errors
+
+`null` means the ABN or ACN wasn't found. Other problems throw:
+
+- An invalid ABN or ACN throws `InvalidValueException`, and an empty name throws
+  `InvalidArgumentException`. Both are thrown before any request is sent.
+- `AbrException` means the lookup failed: the connection failed or timed out, ABN Lookup
+  answered with an HTTP error status or a response that couldn't be read, or it reported an
+  error of its own, such as an unrecognised GUID.
+- `MissingGuidException` means no GUID is set. It's thrown when you call a lookup, not when the
+  app boots. It extends `AbrException`, so catching `AbrException` handles both.
+
+The package's exceptions live in `EastpointLabs\LaravelAu\Exceptions`. Failed requests aren't
+retried. If you need retries, add them where you make the call, such as in a queued job.
+
+#### Caching and settings
+
+Successful `abn()` and `acn()` lookups are cached for a day by default, so looking up the same
+number again sends no request. Not-found results, errors and name searches aren't cached.
+
+The trade-off is that a cached result can be out of date: an ABN cancelled after it was cached
+still shows as active until the entry expires. Lower `ABR_CACHE_TTL`, or turn caching off,
+where that matters.
+
+To change the defaults, set these in your `.env` file:
+
+| Setting             | Default                            | Purpose                                 |
+|---------------------|------------------------------------|-----------------------------------------|
+| `ABR_TIMEOUT`       | `10`                               | Request timeout, in seconds             |
+| `ABR_CACHE_ENABLED` | `true`                             | Set to `false` to turn caching off      |
+| `ABR_CACHE_STORE`   | your app's default store           | The cache store to use, such as `redis` |
+| `ABR_CACHE_TTL`     | `86400` (one day)                  | How long to keep a lookup, in seconds   |
+| `ABR_BASE_URL`      | `https://abr.business.gov.au/json` | The ABN Lookup address                  |
+
+#### Keeping the GUID private
+
+The GUID never appears in exception messages, stack trace arguments or cache keys. ABN Lookup
+takes it as a query parameter, though, so tools that record outgoing HTTP requests, such as
+Laravel Telescope, will see it in the request URL.
+
 ### Planned for v1
 
 The rest of the API is documented here as each feature lands:
 
 - **Eloquent casts:** store canonical values and read them back as value objects.
-- **ABN Lookup client:** look up an ABN or ACN, or search by business name, with caching, and
-  `Abr::fake()` for testing your own code.
+- **ABN Lookup fake:** `Abr::fake()` for testing your own code without calling ABN Lookup.
 - **Active ABN rule:** `abn_active`, which checks the ABN is active on the Australian Business
   Register.
 - **Faker provider:** `fake()->abn()`, `fake()->auMobileNumber()` and friends for factories.
