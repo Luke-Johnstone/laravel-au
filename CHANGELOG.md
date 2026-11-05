@@ -66,3 +66,6 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `InvalidValueException` when set or read.
 - `AsPhoneNumber` stores E.164 or national digits, set by `phone.store_as` in `config/au.php`,
   the same setting the Filament phone field uses.
+- Faker provider, registered automatically when Faker is installed, with `abn()`, `invalidAbn()`,
+  `acn()`, `bsb()`, `auMobileNumber()`, `auLandlineNumber()`, `auPostcode()` and `auState()`.
+  Phone numbers come from ACMA's fictional ranges, and postcodes match the given state.

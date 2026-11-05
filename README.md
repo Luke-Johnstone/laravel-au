@@ -527,6 +527,65 @@ setting still load. `toArray()` and `toJson()` follow the setting too, so a phon
 as `+61491570006` by default. That differs from `json_encode()` on a `PhoneNumber` itself, which
 gives the national digits.
 
+### Faker provider
+
+When Faker is installed, the package adds an Australian provider to Laravel's Faker generator,
+so `fake()->abn()` and friends work in model factories and tests. Most Laravel apps already
+have `fakerphp/faker` as a dev dependency. This package doesn't need it: without Faker, the
+provider just isn't registered.
+
+```php
+use Illuminate\Database\Eloquent\Factories\Factory;
+
+class SupplierFactory extends Factory
+{
+    public function definition(): array
+    {
+        return [
+            'abn'      => fake()->abn(),
+            'acn'      => fake()->acn(),
+            'bsb'      => fake()->bsb(),
+            'phone'    => fake()->auMobileNumber(),
+            'state'    => $state = fake()->auState(),
+            'postcode' => fake()->auPostcode($state), // in the state picked above
+        ];
+    }
+}
+```
+
+The provider adds these methods:
+
+- `abn()`: 11 digits with a valid checksum.
+- `invalidAbn()`: 11 digits that fail the ABN checksum, for testing your validation.
+- `acn()`: 9 digits with a valid check digit.
+- `bsb()`: any 6 digits, which is all `Bsb` checks.
+- `auMobileNumber()`: one of six mobile numbers ACMA reserves for fiction, such as
+  `0491570156`.
+- `auLandlineNumber(?State $state = null)`: a number from ACMA's fictional `5550` block, in the
+  state's area code. `auLandlineNumber(State::VIC)` gives `035550` and four more digits.
+- `auPostcode(?State $state = null)`: a postcode inside one of the state's ranges, so
+  `State::fromPostcode()` returns that state.
+- `auState()`: a `State` case.
+
+Without a state, `auLandlineNumber()` and `auPostcode()` pick one at random.
+
+Values are canonical digit strings, like a value object's `value`, and `auState()` returns a
+`State`. To show one formatted, pass it to the value object:
+
+```php
+use EastpointLabs\LaravelAu\Support\PhoneNumber;
+use EastpointLabs\LaravelAu\Support\State;
+
+PhoneNumber::from(fake()->auLandlineNumber(State::VIC))->format(); // such as "(03) 5550 1234"
+```
+
+Seed Faker, such as with `fake()->seed(1234)`, to get the same values on every run.
+
+> **Warning:** generated ABNs and ACNs pass the checks, but they may belong to real businesses.
+> Never send them to the live ABN Lookup service. In tests, use `Abr::fake()` instead (see
+> [Testing your app](#testing-your-app)). The phone numbers all come from the ranges ACMA
+> reserves for fiction, so they're safe to use.
+
 ### ABN Lookup
 
 `Abr` looks up businesses on the Australian Business Register through its free ABN Lookup web
@@ -855,7 +914,6 @@ The rest of the API is documented here as each feature lands:
 
 - **Active ABN rule:** `abn_active`, which checks the ABN is active on the Australian Business
   Register.
-- **Faker provider:** `fake()->abn()`, `fake()->auMobileNumber()` and friends for factories.
 - **Filament table columns and infolist entries:** show stored ABNs, ACNs, BSBs, phone numbers
   and states formatted, to match the form fields.
 - **Demo app:** `composer serve` starts a Filament panel showing every field.

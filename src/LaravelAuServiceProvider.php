@@ -7,6 +7,7 @@ namespace EastpointLabs\LaravelAu;
 use Closure;
 use EastpointLabs\LaravelAu\Abr\AbrClient;
 use EastpointLabs\LaravelAu\Abr\Contracts\LooksUpAbns;
+use EastpointLabs\LaravelAu\Faker\AuProvider;
 use EastpointLabs\LaravelAu\Rules\Abn;
 use EastpointLabs\LaravelAu\Rules\AbnOrAcn;
 use EastpointLabs\LaravelAu\Rules\Acn;
@@ -15,6 +16,7 @@ use EastpointLabs\LaravelAu\Rules\AuPostcode;
 use EastpointLabs\LaravelAu\Rules\Bsb;
 use EastpointLabs\LaravelAu\Rules\StringRule;
 use EastpointLabs\LaravelAu\Support\PhoneType;
+use Faker\Generator;
 use Illuminate\Contracts\Cache\Factory as CacheFactory;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Contracts\Translation\Translator;
@@ -58,6 +60,11 @@ class LaravelAuServiceProvider extends PackageServiceProvider
 
         // Bound separately rather than aliased, so a test fake can replace the contract alone.
         $this->app->bind(LooksUpAbns::class, fn (Application $app): LooksUpAbns => $app->make(AbrClient::class));
+
+        // Faker is optional, so this only refers to it when it's installed.
+        if (class_exists(Generator::class)) {
+            $this->app->afterResolving(Generator::class, self::addFakerProvider(...));
+        }
     }
 
     public function packageBooted(): void
@@ -72,6 +79,21 @@ class LaravelAuServiceProvider extends PackageServiceProvider
                 $validator->replacer($name, $rule->message(...));
             }
         });
+    }
+
+    /**
+     * Add the Australian provider to a Faker generator, once: Laravel shares the generator that
+     * model factories use, so it can be resolved again.
+     */
+    private static function addFakerProvider(Generator $faker): void
+    {
+        foreach ($faker->getProviders() as $provider) {
+            if ($provider instanceof AuProvider) {
+                return;
+            }
+        }
+
+        $faker->addProvider(new AuProvider($faker));
     }
 
     /**

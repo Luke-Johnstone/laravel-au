@@ -62,3 +62,11 @@ arch('ABN Lookup data objects are readonly')
     ->expect('EastpointLabs\LaravelAu\Abr\Data')
     ->classes()
     ->toBeReadonly();
+
+// Faker's entry points rather than the whole 'Faker' namespace. Checking against all of Faker
+// means parsing its hundreds of locale providers, about 20 MB more at peak, and loading its
+// Doctrine shim, which fails without Doctrine installed.
+arch('only the Faker provider and the service provider use Faker')
+    ->expect('EastpointLabs\LaravelAu')
+    ->not->toUse(['Faker\Factory', 'Faker\Generator', 'Faker\Provider\Base', 'Faker\Provider\en_AU'])
+    ->ignoring(['EastpointLabs\LaravelAu\Faker', 'EastpointLabs\LaravelAu\LaravelAuServiceProvider']);
