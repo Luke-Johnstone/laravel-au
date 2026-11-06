@@ -70,3 +70,16 @@ arch('only the Faker provider and the service provider use Faker')
     ->expect('EastpointLabs\LaravelAu')
     ->not->toUse(['Faker\Factory', 'Faker\Generator', 'Faker\Provider\Base', 'Faker\Provider\en_AU'])
     ->ignoring(['EastpointLabs\LaravelAu\Faker', 'EastpointLabs\LaravelAu\LaravelAuServiceProvider']);
+
+// Blocklists over the package's own namespaces, so they parse only a handful of files. Both
+// check against all of Abr, so its files are parsed once; a narrower name is parsed again. The
+// facade is listed too, since it reaches ABN Lookup from outside the Abr namespace.
+arch('only the active ABN rule depends on ABN Lookup')
+    ->expect('EastpointLabs\LaravelAu\Rules')
+    ->not->toUse(['EastpointLabs\LaravelAu\Abr', 'EastpointLabs\LaravelAu\Facades\Abr'])
+    ->ignoring('EastpointLabs\LaravelAu\Rules\ActiveAbn');
+
+arch('the active ABN rule uses ABN Lookup only through the contract, not the client or the fake')
+    ->expect('EastpointLabs\LaravelAu\Rules\ActiveAbn')
+    ->not->toUse(['EastpointLabs\LaravelAu\Abr', 'EastpointLabs\LaravelAu\Facades\Abr'])
+    ->ignoring(['EastpointLabs\LaravelAu\Abr\Contracts', 'EastpointLabs\LaravelAu\Abr\Data']);

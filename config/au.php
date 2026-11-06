@@ -11,8 +11,9 @@ return [
     |
     | ABN Lookup web services need a free authentication GUID, which you can
     | request at https://abr.business.gov.au/Tools/WebServices. Keep it in
-    | your .env file. It is only needed when you call the ABR client; the
-    | validation rules and formatters work without it.
+    | your .env file. It is only needed for ABN lookups (the Abr facade, the
+    | abn_active rule and the Filament lookup); the other rules and the value
+    | objects work without it.
     |
     */
 

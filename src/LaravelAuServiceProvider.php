@@ -11,6 +11,7 @@ use EastpointLabs\LaravelAu\Faker\AuProvider;
 use EastpointLabs\LaravelAu\Rules\Abn;
 use EastpointLabs\LaravelAu\Rules\AbnOrAcn;
 use EastpointLabs\LaravelAu\Rules\Acn;
+use EastpointLabs\LaravelAu\Rules\ActiveAbn;
 use EastpointLabs\LaravelAu\Rules\AuPhone;
 use EastpointLabs\LaravelAu\Rules\AuPostcode;
 use EastpointLabs\LaravelAu\Rules\Bsb;
@@ -107,10 +108,33 @@ class LaravelAuServiceProvider extends PackageServiceProvider
             'abn' => fn (): ValidationRule => new Abn,
             'acn' => fn (): ValidationRule => new Acn,
             'abn_or_acn' => fn (): ValidationRule => new AbnOrAcn,
+            'abn_active' => self::activeAbn(...),
             'bsb' => fn (): ValidationRule => new Bsb,
             'au_phone' => fn (array $types): ValidationRule => new AuPhone(...array_map(self::phoneType(...), $types)),
             'au_postcode' => fn (array $parameters): ValidationRule => new AuPostcode($parameters[0] ?? null),
         ];
+    }
+
+    /**
+     * The "abn_active" rule; "abn_active:gst" also requires GST registration.
+     *
+     * @param  list<string>  $parameters
+     *
+     * @throws InvalidArgumentException
+     */
+    private static function activeAbn(array $parameters): ActiveAbn
+    {
+        $rule = new ActiveAbn;
+
+        foreach ($parameters as $parameter) {
+            if (strtolower(trim($parameter)) !== 'gst') {
+                throw new InvalidArgumentException('The abn_active rule accepts only gst.');
+            }
+
+            $rule->requireGst();
+        }
+
+        return $rule;
     }
 
     /**

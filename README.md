@@ -75,6 +75,7 @@ rule object and as a string rule:
 | `new Bsb`        | `bsb`         | a BSB with 6 digits                       |
 | `new AuPhone`    | `au_phone`    | a mobile or landline number               |
 | `new AuPostcode` | `au_postcode` | a postcode in any state                   |
+| `new ActiveAbn`  | `abn_active`  | an active ABN, checked with ABN Lookup    |
 
 ```php
 use EastpointLabs\LaravelAu\Rules\AbnOrAcn;
@@ -180,6 +181,84 @@ $request->validate([
 Here `addresses.0.postcode` is checked against `addresses.0.state`. A field name with a dot,
 such as `matchingStateField('billing.state')`, is an absolute path from the top of the data.
 
+#### Active ABN rule
+
+A checksum shows an ABN is well formed, not that the business exists. `ActiveAbn` checks that
+the ABN is on the Australian Business Register and that its status is active. `requireGst()`,
+or `abn_active:gst`, also requires it to be registered for GST:
+
+```php
+use EastpointLabs\LaravelAu\Rules\ActiveAbn;
+
+$request->validate([
+    'abn' => ['required', (new ActiveAbn)->requireGst()],
+]);
+
+// The same, with a string rule
+$request->validate([
+    'abn' => 'required|abn_active:gst',
+]);
+```
+
+With `abn` as the field, the rule fails with:
+
+- "The abn must be a valid ABN." when the ABN is badly formatted. It isn't looked up.
+- "The abn must be an active ABN." when the ABN isn't on the register, or isn't active.
+- "The abn must be registered for GST." when it's active but not registered for GST, with
+  `requireGst()` or `abn_active:gst`.
+
+A suppressed ABN is judged on its status like any other, so a suppressed ABN that's active
+passes. `null` is left to `required` and `nullable`, as with the other rules.
+
+The rule uses [ABN Lookup](#abn-lookup), so it needs the `ABR_GUID` from
+[Installation](#installation).
+
+When the ABN can't be checked, because no GUID is set, ABN Lookup can't be reached or times out,
+or it answers with an error, the rule fails with "The abn could not be checked right now. Please
+try again." It also logs a warning that names the exception class only, without the GUID or the
+ABN. Failing is the safe default, because an unchecked ABN never gets through. Where letting
+someone through matters more than the check, call `passWhenUnavailable()` to pass instead:
+
+```php
+$request->validate([
+    'abn' => ['required', (new ActiveAbn)->passWhenUnavailable()],
+]);
+```
+
+The warning is still logged, and an ABN that's looked up and isn't active still fails. There's
+no string rule form of `passWhenUnavailable()`, so use the rule object.
+
+On a cache miss, the lookup is a network call made during validation, so it can add up to
+`ABR_TIMEOUT` seconds (10 by default) to the response. Successful lookups are cached, for a day
+by default, so checking the same ABN again is fast. Not-found results and errors aren't cached.
+See [Caching and settings](#caching-and-settings). For forms, consider a lower timeout, such as
+`ABR_TIMEOUT=3`, so a slow ABN Lookup doesn't keep people waiting. The timeout applies to every
+lookup, not just this rule.
+
+In tests, use `Abr::fake()` so no request is sent (see [Testing your app](#testing-your-app)).
+An ABN you configure is active and not registered for GST unless you say otherwise:
+
+```php
+use EastpointLabs\LaravelAu\Facades\Abr;
+use EastpointLabs\LaravelAu\Rules\ActiveAbn;
+use Illuminate\Support\Facades\Validator;
+
+it('only accepts active ABNs', function (): void {
+    Abr::fake([
+        '51824753556' => [],
+        '83914571673' => ['AbnStatus' => 'Cancelled'],
+    ]);
+
+    $rules = ['abn' => ['required', new ActiveAbn]];
+
+    expect(Validator::make(['abn' => '51 824 753 556'], $rules)->passes())->toBeTrue()
+        ->and(Validator::make(['abn' => '83 914 571 673'], $rules)->passes())->toBeFalse();
+});
+```
+
+Set `'Gst' => '2000-07-01'` on an ABN to make it registered for GST, and use
+`Abr::fake()->failing()` to test what happens when the ABN can't be checked.
+
 #### Messages
 
 The messages are in Australian English, under the `au::validation` translation namespace. For
@@ -191,7 +270,8 @@ add the same file for another locale, such as `lang/vendor/au/fr/validation.php`
 
 For the string rules, your app's own messages win, as they do for Laravel's built-in rules: an
 inline custom message, or a line keyed by the rule name (such as `abn`) in your app's
-`lang/en/validation.php`.
+`lang/en/validation.php`. Your message replaces every message that rule can fail with, so a
+line for `abn_active` also covers an ABN that couldn't be checked.
 
 ### ABN, ACN and BSB
 
@@ -589,8 +669,9 @@ Seed Faker, such as with `fake()->seed(1234)`, to get the same values on every r
 ### ABN Lookup
 
 `Abr` looks up businesses on the Australian Business Register through its free ABN Lookup web
-services. It needs the `ABR_GUID` from [Installation](#installation). The validation rules and
-value objects don't, so you can skip the GUID if those are all you use.
+services. It needs the `ABR_GUID` from [Installation](#installation), and so does the
+[active ABN rule](#active-abn-rule). The other validation rules and the value objects don't, so
+you can skip the GUID if those are all you use.
 
 ```php
 use EastpointLabs\LaravelAu\Facades\Abr;
@@ -912,8 +993,6 @@ with the `au-translations` tag (see [Installation](#installation)) and edit
 
 The rest of the API is documented here as each feature lands:
 
-- **Active ABN rule:** `abn_active`, which checks the ABN is active on the Australian Business
-  Register.
 - **Filament table columns and infolist entries:** show stored ABNs, ACNs, BSBs, phone numbers
   and states formatted, to match the form fields.
 - **Demo app:** `composer serve` starts a Filament panel showing every field.

@@ -69,3 +69,9 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Faker provider, registered automatically when Faker is installed, with `abn()`, `invalidAbn()`,
   `acn()`, `bsb()`, `auMobileNumber()`, `auLandlineNumber()`, `auPostcode()` and `auState()`.
   Phone numbers come from ACMA's fictional ranges, and postcodes match the given state.
+- `ActiveAbn` validation rule and `abn_active` string rule, which check with ABN Lookup that an
+  ABN is active on the Australian Business Register. `requireGst()` and `abn_active:gst` also
+  require GST registration.
+- `ActiveAbn` fails when the ABN can't be checked, such as when no GUID is set or ABN Lookup is
+  unreachable, and logs a warning without the GUID or the ABN. `passWhenUnavailable()` makes it
+  pass instead.
