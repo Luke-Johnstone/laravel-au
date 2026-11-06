@@ -8,10 +8,13 @@ use BladeUI\Heroicons\BladeHeroiconsServiceProvider;
 use BladeUI\Icons\BladeIconsServiceProvider;
 use EastpointLabs\LaravelAu\LaravelAuServiceProvider;
 use Filament\Actions\ActionsServiceProvider;
+use Filament\FilamentManager;
 use Filament\FilamentServiceProvider;
 use Filament\Forms\FormsServiceProvider;
+use Filament\Infolists\InfolistsServiceProvider;
 use Filament\Schemas\SchemasServiceProvider;
 use Filament\Support\SupportServiceProvider;
+use Filament\Tables\TablesServiceProvider;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\ServiceProvider;
 use Livewire\LivewireServiceProvider;
@@ -56,11 +59,21 @@ abstract class TestCase extends Orchestra
         $app['config']->set('app.key', 'base64:'.base64_encode(str_repeat('a', 32)));
         $app['config']->set('au.abr.guid', 'testing-guid');
         $app['config']->set('cache.default', 'array');
+
+        // Filament's tables ask the panel manager for the current tenant whenever Filament's
+        // panels are installed. Binding the manager, as the panel provider does, is all a table
+        // needs; booting the whole panel provider (routes, commands, assets) for every test
+        // would cost memory for nothing.
+        if (class_exists(FilamentManager::class)) {
+            $app->scoped('filament', fn (): FilamentManager => new FilamentManager);
+            $app->alias('filament', FilamentManager::class);
+        }
     }
 
     /**
-     * The providers a Filament form needs, when Filament is installed. The suite also runs
-     * without Filament, so these names are only strings until it's known to be there.
+     * The providers a Filament form, table or infolist needs, when Filament is installed. The
+     * suite also runs without Filament, so these names are only strings until it's known to be
+     * there.
      *
      * @return list<class-string<ServiceProvider>>
      */
@@ -79,6 +92,8 @@ abstract class TestCase extends Orchestra
             ActionsServiceProvider::class,
             SchemasServiceProvider::class,
             FormsServiceProvider::class,
+            InfolistsServiceProvider::class,
+            TablesServiceProvider::class,
         ];
     }
 }

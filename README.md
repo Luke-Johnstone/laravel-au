@@ -35,7 +35,7 @@ optional Filament form fields on top.
 
 - PHP 8.3+
 - Laravel 12 or 13
-- Filament 4 or 5 (optional, only for the form fields)
+- Filament 4 or 5 (optional, only for the form fields, table columns and infolist entries)
 
 ## Installation
 
@@ -989,12 +989,75 @@ shown, so the current locale applies. To change or translate them, publish the t
 with the `au-translations` tag (see [Installation](#installation)) and edit
 `lang/vendor/au/en/fields.php`.
 
+#### Table columns and infolist entries
+
+These show stored values formatted, to match the form fields. The columns live in
+`EastpointLabs\LaravelAu\Filament\Tables` and the entries in
+`EastpointLabs\LaravelAu\Filament\Infolists`:
+
+| Column          | Entry          | Example           |
+|-----------------|----------------|-------------------|
+| `AbnColumn`     | `AbnEntry`     | `51 824 753 556`  |
+| `AcnColumn`     | `AcnEntry`     | `004 085 616`     |
+| `BsbColumn`     | `BsbEntry`     | `062-000`         |
+| `AuPhoneColumn` | `AuPhoneEntry` | `0491 570 156`    |
+| `StateColumn`   | `StateEntry`   | `New South Wales` |
+
+```php
+use EastpointLabs\LaravelAu\Filament\Tables\AbnColumn;
+use EastpointLabs\LaravelAu\Filament\Tables\AuPhoneColumn;
+use EastpointLabs\LaravelAu\Filament\Tables\StateColumn;
+use Filament\Tables\Table;
+
+public static function table(Table $table): Table
+{
+    return $table->columns([
+        AbnColumn::make('abn')->linkToAbnLookup(),
+        AuPhoneColumn::make('phone')->dialable(),
+        StateColumn::make('state')->abbreviated(),
+    ]);
+}
+```
+
+```php
+use EastpointLabs\LaravelAu\Filament\Infolists\AbnEntry;
+use EastpointLabs\LaravelAu\Filament\Infolists\AcnEntry;
+use EastpointLabs\LaravelAu\Filament\Infolists\AuPhoneEntry;
+use EastpointLabs\LaravelAu\Filament\Infolists\BsbEntry;
+use EastpointLabs\LaravelAu\Filament\Infolists\StateEntry;
+use Filament\Schemas\Schema;
+
+public static function infolist(Schema $schema): Schema
+{
+    return $schema->components([
+        AbnEntry::make('abn')->linkToAbnLookup(),
+        AcnEntry::make('acn'),
+        BsbEntry::make('bsb'),
+        AuPhoneEntry::make('phone')->dialable(),
+        StateEntry::make('state'),
+    ]);
+}
+```
+
+Each works with just `make()`. The value can be a plain stored string, or the value object or
+`State` that an [Eloquent cast](#eloquent-casts) gives you. A stored value that doesn't parse,
+such as an ABN with a bad checksum, is shown as it is, never hidden. Each has the same default
+label as its form field, such as "ABN" (see [Labels](#labels)), and `->label()` overrides it.
+
+`StateColumn` and `StateEntry` show the state's name. `->abbreviated()` shows its code, such as
+`NSW`, which suits a narrow column.
+
+`->linkToAbnLookup()` links an ABN to its page on ABN Lookup, such as
+`https://abr.business.gov.au/ABN/View?abn=51824753556`, in a new tab. It's a public page, so no
+GUID is needed. `->dialable()` makes a phone number a `tel:` link, so a click dials it. The link
+uses E.164, such as `tel:+61491570156`, or the national digits for a service number, such as
+`tel:1300975707`, because it has no E.164 form. Links are only built from a valid number, so a
+value that doesn't parse gets no link.
+
 ### Planned for v1
 
 The rest of the API is documented here as each feature lands:
 
-- **Filament table columns and infolist entries:** show stored ABNs, ACNs, BSBs, phone numbers
-  and states formatted, to match the form fields.
 - **Demo app:** `composer serve` starts a Filament panel showing every field.
 
 ## Testing

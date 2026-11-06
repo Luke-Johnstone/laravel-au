@@ -75,3 +75,13 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `ActiveAbn` fails when the ABN can't be checked, such as when no GUID is set or ABN Lookup is
   unreachable, and logs a warning without the GUID or the ABN. `passWhenUnavailable()` makes it
   pass instead.
+- Optional Filament table columns `AbnColumn`, `AcnColumn`, `BsbColumn`, `AuPhoneColumn` and
+  `StateColumn`, and infolist entries `AbnEntry`, `AcnEntry`, `BsbEntry`, `AuPhoneEntry` and
+  `StateEntry`. They show a stored string or cast value formatted, show a value that doesn't
+  parse as it is stored, and have the same default labels as the form fields.
+- `abbreviated()` on `StateColumn` and `StateEntry`, which shows the state's code rather than
+  its name.
+- `linkToAbnLookup()` on `AbnColumn` and `AbnEntry`, which links a valid ABN to its page on ABN
+  Lookup in a new tab.
+- `dialable()` on `AuPhoneColumn` and `AuPhoneEntry`, which links a valid number with `tel:`, in
+  E.164 or as national digits for a service number.

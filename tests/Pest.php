@@ -4,8 +4,12 @@ declare(strict_types=1);
 
 use EastpointLabs\LaravelAu\Abr\JsonpDecoder;
 use EastpointLabs\LaravelAu\Tests\Filament\Fixtures\TestForm;
+use EastpointLabs\LaravelAu\Tests\Filament\Fixtures\TestInfolist;
+use EastpointLabs\LaravelAu\Tests\Filament\Fixtures\TestRecord;
+use EastpointLabs\LaravelAu\Tests\Filament\Fixtures\TestTable;
 use EastpointLabs\LaravelAu\Tests\TestCase;
 use Filament\Forms\Components\Field;
+use Filament\Infolists\Components\TextEntry;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
@@ -18,8 +22,15 @@ pest()->extend(TestCase::class)->in(__DIR__);
 // CI also runs the suite without Filament installed, excluding this group.
 pest()->group('filament')->in('Filament');
 
-// Every Filament test gives the form its own fields.
-pest()->beforeEach(fn () => TestForm::forgetComponents())->in('Filament');
+// Every Filament test gives its form, table or infolist its own components.
+pest()->beforeEach(function (): void {
+    TestForm::forgetComponents();
+    TestTable::forgetColumns();
+    TestInfolist::forgetComponents();
+})->in('Filament');
+
+// Tables and infolists show records from Testbench's in-memory SQLite database.
+pest()->beforeEach(fn () => TestRecord::createTable())->in('Filament/Tables', 'Filament/Infolists');
 
 /*
 |--------------------------------------------------------------------------
@@ -187,6 +198,67 @@ function formField(Testable $form, string $name): Field
     }
 
     return $field;
+}
+
+/**
+ * Mount the Filament test table with the given columns, listing every record of the given
+ * model, e.g. testTable(fn () => [AbnColumn::make('abn')], CastTestRecord::class). The columns
+ * are built in a closure because Livewire builds the table again on every request.
+ *
+ * @param  Closure(): array<mixed>  $columns
+ * @param  class-string<TestRecord>  $recordClass
+ */
+function testTable(Closure $columns, string $recordClass = TestRecord::class): Testable
+{
+    // Build the columns once here, so a column that can't be built fails with its own error
+    // rather than one wrapped in Livewire's rendering of the table.
+    $columns();
+
+    TestTable::using($columns);
+
+    return Livewire::test(TestTable::class, ['recordClass' => $recordClass]);
+}
+
+/**
+ * Mount the Filament test infolist with the given entries, showing the given record, e.g.
+ * testInfolist(fn () => [AbnEntry::make('abn')], $record).
+ *
+ * @param  Closure(): array<mixed>  $components
+ */
+function testInfolist(Closure $components, TestRecord $record): Testable
+{
+    // Build the entries once here, for the same reason as testTable().
+    $components();
+
+    TestInfolist::using($components);
+
+    return Livewire::test(TestInfolist::class, ['record' => $record]);
+}
+
+/**
+ * The text entry with the given name on a mounted test infolist, e.g.
+ * infolistEntry($infolist, 'abn').
+ */
+function infolistEntry(Testable $infolist, string $name): TextEntry
+{
+    $entry = $infolist->instance()->getSchema('infolist')?->getFlatComponents(withHidden: true)[$name] ?? null;
+
+    if (! $entry instanceof TextEntry) {
+        throw new RuntimeException("The test infolist has no text entry named [{$name}].");
+    }
+
+    return $entry;
+}
+
+/**
+ * The value an entry on a mounted test infolist shows for its record, as it's formatted, e.g.
+ * "51 824 753 556". Tables have assertTableColumnFormattedStateSet() for the same check.
+ */
+function formattedEntryState(Testable $infolist, string $name): mixed
+{
+    $entry = infolistEntry($infolist, $name);
+
+    return $entry->formatState($entry->getState());
 }
 
 /**
