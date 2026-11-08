@@ -85,3 +85,5 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   Lookup in a new tab.
 - `dialable()` on `AuPhoneColumn` and `AuPhoneEntry`, which links a valid number with `tel:`, in
   E.164 or as national digits for a service number.
+- Demo Filament app in `workbench/`, started with `composer serve`, that uses every field, column
+  and entry. ABN lookup works offline without `ABR_GUID`. It isn't part of the Composer package.

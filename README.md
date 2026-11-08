@@ -4,11 +4,16 @@
 [![Latest version](https://img.shields.io/packagist/v/eastpointlabs/laravel-au.svg)](https://packagist.org/packages/eastpointlabs/laravel-au)
 [![Licence](https://img.shields.io/packagist/l/eastpointlabs/laravel-au.svg)](LICENSE.md)
 
-Australian business and address helpers for Laravel and Filament: ABN and ACN validation, ABN
-Lookup, phone numbers, postcodes, states and BSBs.
+Validate Australian business details in Laravel, check ABNs against the Australian Business
+Register, and add ready-made fields to Filament forms.
 
 > **Status:** in development. The API below is the planned v1 API and may change before the
 > first release.
+
+## What it does
+
+**Catches bad details before they're saved.** Rules for ABNs, ACNs, BSBs, phone numbers and
+postcodes, including whether a postcode belongs to the selected state.
 
 ```php
 use EastpointLabs\LaravelAu\Rules\Abn;
@@ -24,6 +29,39 @@ $request->validate([
     'postcode' => ['required', AuPostcode::matchingStateField('state')],
 ]);
 ```
+
+**Checks a business on the register.** A valid checksum doesn't mean a business exists. With a
+free GUID, the [active ABN rule](#active-abn-rule) rejects an ABN that's cancelled or not on the
+register, and can require GST registration. [`Abr`](#abn-lookup) gives you the business's
+details in your own code.
+
+```php
+use EastpointLabs\LaravelAu\Facades\Abr;
+use EastpointLabs\LaravelAu\Rules\ActiveAbn;
+
+$request->validate([
+    'abn' => ['required', (new ActiveAbn)->requireGst()],
+]);
+
+Abr::abn('51 824 753 556')?->displayName(); // the business name, or null if not found or hidden
+```
+
+**Adds Australian fields to Filament.** [Form fields](#filament-fields) format and validate as
+people type. `AbnInput` can fill in the business name from the ABN, and `AuAddressFields` adds a
+full address with the postcode checked against the state.
+
+```php
+use EastpointLabs\LaravelAu\Filament\Forms\AbnInput;
+use EastpointLabs\LaravelAu\Filament\Forms\AuAddressFields;
+use Filament\Forms\Components\TextInput;
+
+AbnInput::make('abn')->lookup('business_name'),
+TextInput::make('business_name'),
+AuAddressFields::make(),
+```
+
+It also includes [value objects](#abn-acn-and-bsb), [Eloquent casts](#eloquent-casts) and a
+[Faker provider](#faker-provider) for test data. Use what you need and ignore the rest.
 
 ## Why
 
@@ -1054,11 +1092,38 @@ uses E.164, such as `tel:+61491570156`, or the national digits for a service num
 `tel:1300975707`, because it has no E.164 form. Links are only built from a valid number, so a
 value that doesn't parse gets no link.
 
-### Planned for v1
+## Try the demo
 
-The rest of the API is documented here as each feature lands:
+The repository includes a small Filament app that uses every field, column and entry, so you can
+try them without setting up a project. Its code is in `workbench/`, and it isn't included when
+you install the package. From a clone:
 
-- **Demo app:** `composer serve` starts a Filament panel showing every field.
+```bash
+composer install
+composer serve
+```
+
+Filament is a dev dependency, so `composer install` brings it in. `composer serve` runs
+`composer build` and then starts the server. `composer build` creates the demo's SQLite
+database, migrates it, seeds a demo user and 12 suppliers, and publishes Filament's assets. The
+suppliers come from the package's [Faker provider](#faker-provider).
+
+The panel is at `http://127.0.0.1:8000/admin`. It signs the demo user in automatically, in the
+local environment only. Each `composer serve` rebuilds the database, so anything you save in the
+demo is lost the next time you start it.
+
+Without `ABR_GUID`, ABN lookup in the demo answers from [`Abr::fake()`](#testing-your-app) with
+three test ABNs, `51 824 753 556`, `53 004 085 616` and `83 914 571 673`, so it works offline.
+Type `51 824 753 556` in the ABN field and press Tab: the business name fills in with "Example
+Holdings Pty Ltd". With `ABR_GUID` set, the demo uses the real ABN Lookup service.
+
+New suppliers also go through the [active ABN rule](#active-abn-rule) when you save. The demo
+treats `83 914 571 673` as cancelled, so saving it shows "The ABN must be an active ABN." Saved
+suppliers aren't checked again, because the seeded ABNs are generated and may belong to real
+businesses.
+
+The address fields check the postcode against the state. With NSW selected, `3000` shows "The
+postcode must be in New South Wales."
 
 ## Testing
 

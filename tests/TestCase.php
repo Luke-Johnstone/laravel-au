@@ -23,6 +23,15 @@ use RyanChandler\BladeCaptureDirective\BladeCaptureDirectiveServiceProvider;
 
 abstract class TestCase extends Orchestra
 {
+    /**
+     * Null rather than Testbench's false, which turns package discovery off for every test. With
+     * null, Testbench discovers packages only for a test that boots the demo app with
+     * WithWorkbench, as `composer serve` does, so the demo's panel gets all of Filament.
+     *
+     * @var bool|null
+     */
+    protected $enablesPackageDiscoveries = null;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -50,6 +59,9 @@ abstract class TestCase extends Orchestra
         return [
             ...self::filamentProviders(),
             LaravelAuServiceProvider::class,
+            // The demo app's providers from testbench.yaml, for a test that boots it with
+            // WithWorkbench. Every other test gets none.
+            ...parent::getPackageProviders($app),
         ];
     }
 
@@ -59,6 +71,11 @@ abstract class TestCase extends Orchestra
         $app['config']->set('app.key', 'base64:'.base64_encode(str_repeat('a', 32)));
         $app['config']->set('au.abr.guid', 'testing-guid');
         $app['config']->set('cache.default', 'array');
+
+        // Testbench's in-memory database. Once `composer build` has created the demo app's
+        // SQLite file, Testbench would otherwise default to that file, and tests would change the
+        // demo's data.
+        $app['config']->set('database.default', 'testing');
 
         // Filament's tables ask the panel manager for the current tenant whenever Filament's
         // panels are installed. Binding the manager, as the panel provider does, is all a table

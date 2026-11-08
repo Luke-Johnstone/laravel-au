@@ -15,6 +15,14 @@ arch('the core does not depend on Filament')
     ->not->toUse('Filament')
     ->ignoring('EastpointLabs\LaravelAu\Filament');
 
+// Pest finds a namespace's classes through Composer's PSR-4 prefixes, so each of the demo app's
+// prefixes is listed: a bare 'Workbench' matches none of them, and the rule would check nothing.
+// Checking it loads the demo app's classes, and many need Filament, hence the filament group.
+arch('nothing in the package uses the demo app')
+    ->group('filament')
+    ->expect('EastpointLabs\LaravelAu')
+    ->not->toUse(['Workbench\App', 'Workbench\Database\Factories', 'Workbench\Database\Seeders']);
+
 // Allowlists rather than ->not->toUse('Illuminate'): they're stricter, and checking against a
 // blocklist means parsing all of Laravel, which takes most of PHP's default memory limit.
 arch('support classes use only plain PHP and the package\'s exceptions')
