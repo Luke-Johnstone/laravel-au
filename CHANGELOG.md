@@ -9,81 +9,38 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
-- Package skeleton: service provider, config, test suite, CI and static analysis.
-- `Abn`, `Acn` and `Bsb` value objects that parse, validate and format Australian Business
-  Numbers, Australian Company Numbers and BSBs.
-- `Abn::acn()`, which returns the ACN held in the last nine digits of a company's ABN when they
-  form a valid ACN.
+- Value objects `Abn`, `Acn`, `Bsb`, `Postcode` and `PhoneNumber`, which accept numbers as
+  people type them, validate them and format them for display. `Abn::acn()` finds the ACN in a
+  company's ABN, and `PhoneNumber` gives E.164 and international forms.
+- `State` enum for the eight states and territories, with labels, loose parsing, postcode ranges
+  and `options()` for select fields, and `PhoneType` enum for mobile, landline and service
+  numbers.
 - `InvalidValueException`, thrown by `from()` for invalid input. Its message never includes the
   input.
-- `State` enum for the eight states and territories, with full-name labels, loose parsing of
-  codes and names, postcode-to-state lookup and `options()` for select fields.
-- `Postcode` value object that checks a postcode has 4 digits and falls in a state's range, and
-  reports which state it belongs to.
-- `PhoneNumber` value object that parses Australian mobile, landline and 13/1300/1800 numbers
-  typed in national or +61 form, and formats them for display or as E.164.
-- `PhoneType` enum (`Mobile`, `Landline`, `Service`), returned by `PhoneNumber::type()`.
-- Validation rules `Abn`, `Acn`, `AbnOrAcn`, `Bsb`, `AuPhone` and `AuPostcode`, backed by the
-  value objects. `AuPhone` takes the phone types to allow, and `AuPostcode` an optional state.
-- String rules `abn`, `acn`, `abn_or_acn`, `bsb`, `au_phone` (such as `au_phone:mobile`) and
-  `au_postcode` (such as `au_postcode:NSW`), which pass and fail like the rule objects.
-- `AuPostcode::matchingStateField()`, which checks a postcode against the state in another
-  field, including each item in a nested array.
-- Australian English validation messages under the `au::validation` translation namespace,
-  publishable with the `au-translations` tag.
-- `AbnDetails` and `NameMatch` data objects for ABN Lookup records and name search results.
-  `AbnDetails` has `isActive()`, `isGstRegistered()`, `isSuppressed()`, `displayName()` and
-  `toArray()`. A suppressed ABN has no names or address, so its `displayName()` is `null`.
-- `AbrException` for ABN Lookup errors, and its subclass `MissingGuidException`, whose
-  message explains how to set `ABR_GUID`.
-- `AbrClient`, an ABN Lookup client with `abn()`, `acn()` and `searchByName()`. It checks input
-  before sending a request, uses the `ABR_TIMEOUT` timeout, doesn't retry, and keeps the GUID
-  out of exception messages, stack traces and cache keys.
-- `LooksUpAbns` contract for ABN Lookup, the type to inject in application code.
-- `Abr` facade, which resolves `LooksUpAbns`.
-- Caching of successful ABN and ACN lookups, for a day by default, configured with
-  `ABR_CACHE_ENABLED`, `ABR_CACHE_STORE` and `ABR_CACHE_TTL`. Not-found results, errors and
-  name searches aren't cached.
-- `Abr::fake()`, which binds an `AbrFake` to `LooksUpAbns` so tests can look up ABNs, ACNs and
-  names without sending a request. It can return not-found, suppressed and failing lookups, set
-  name search results and prevent stray lookups, and has `assertLookedUp()`,
-  `assertNotLookedUp()`, `assertNothingLookedUp()` and `assertLookupCount()`.
-- `AbrClient::MAX_RESULTS`, the most name matches ABN Lookup returns for one search (200).
+- Validation rules `Abn`, `Acn`, `AbnOrAcn`, `Bsb`, `AuPhone` and `AuPostcode`, with matching
+  string rules. `AuPostcode::matchingStateField()` checks a postcode against the state in
+  another field, including in nested arrays.
+- `ActiveAbn` rule and `abn_active` string rule, which check with ABN Lookup that an ABN is
+  active and, with `requireGst()`, registered for GST. When the ABN can't be checked it fails
+  and logs a warning, unless `passWhenUnavailable()` is set.
+- Australian English validation messages and field labels, publishable with the
+  `au-translations` tag.
+- ABN Lookup client with `abn()`, `acn()` and `searchByName()`, through the `Abr` facade or the
+  `LooksUpAbns` contract. It returns `AbnDetails` and `NameMatch` objects, caches successful
+  lookups, and keeps the GUID out of exception messages, stack traces and cache keys. Errors
+  throw `AbrException`, or `MissingGuidException` when no GUID is set.
+- `Abr::fake()` for testing code that looks up ABNs without sending requests, with not-found,
+  suppressed and failing answers, stray lookup prevention and lookup assertions.
+- Eloquent casts `AsAbn`, `AsAcn`, `AsBsb`, `AsPhoneNumber` and `AsPostcode`. `AsPhoneNumber`
+  stores E.164 or national digits, set by `phone.store_as` in `config/au.php`.
+- Faker provider with `abn()`, `invalidAbn()`, `acn()`, `bsb()`, `auMobileNumber()`,
+  `auLandlineNumber()`, `auPostcode()` and `auState()`, registered when Faker is installed.
+  Phone numbers come from ACMA's ranges for fiction.
 - Optional Filament 4 and 5 form fields `AbnInput`, `AcnInput`, `BsbInput`, `AuPhoneInput`,
-  `AuPostcodeInput`, `StateSelect` and `AuAddressFields`. They mask and validate input, save
-  canonical values and show stored values formatted.
-- `AbnInput::lookup()`, which fills another field with the business name from ABN Lookup when
-  the ABN field loses focus. A failed lookup is logged without the GUID and leaves the form as
-  it is.
-- `AuPhoneInput::mobileOnly()`, `landlineOnly()` and `allowServiceNumbers()`. The field saves
-  numbers in E.164 or as national digits, set by `phone.store_as` in `config/au.php`.
-- `AuPostcodeInput::forState()`, which checks the postcode against the state chosen in another
-  field.
-- Default field labels such as "ABN" rather than "Abn", under the `au::fields` translation
-  namespace and publishable with the `au-translations` tag.
-- Eloquent casts `AsAbn`, `AsAcn`, `AsBsb`, `AsPhoneNumber` and `AsPostcode`, which store the
-  canonical string and read it back as the value object. Invalid values throw
-  `InvalidValueException` when set or read.
-- `AsPhoneNumber` stores E.164 or national digits, set by `phone.store_as` in `config/au.php`,
-  the same setting the Filament phone field uses.
-- Faker provider, registered automatically when Faker is installed, with `abn()`, `invalidAbn()`,
-  `acn()`, `bsb()`, `auMobileNumber()`, `auLandlineNumber()`, `auPostcode()` and `auState()`.
-  Phone numbers come from ACMA's fictional ranges, and postcodes match the given state.
-- `ActiveAbn` validation rule and `abn_active` string rule, which check with ABN Lookup that an
-  ABN is active on the Australian Business Register. `requireGst()` and `abn_active:gst` also
-  require GST registration.
-- `ActiveAbn` fails when the ABN can't be checked, such as when no GUID is set or ABN Lookup is
-  unreachable, and logs a warning without the GUID or the ABN. `passWhenUnavailable()` makes it
-  pass instead.
+  `AuPostcodeInput`, `StateSelect` and `AuAddressFields`. `AbnInput::lookup()` fills in the
+  business name from ABN Lookup.
 - Optional Filament table columns `AbnColumn`, `AcnColumn`, `BsbColumn`, `AuPhoneColumn` and
-  `StateColumn`, and infolist entries `AbnEntry`, `AcnEntry`, `BsbEntry`, `AuPhoneEntry` and
-  `StateEntry`. They show a stored string or cast value formatted, show a value that doesn't
-  parse as it is stored, and have the same default labels as the form fields.
-- `abbreviated()` on `StateColumn` and `StateEntry`, which shows the state's code rather than
-  its name.
-- `linkToAbnLookup()` on `AbnColumn` and `AbnEntry`, which links a valid ABN to its page on ABN
-  Lookup in a new tab.
-- `dialable()` on `AuPhoneColumn` and `AuPhoneEntry`, which links a valid number with `tel:`, in
-  E.164 or as national digits for a service number.
-- Demo Filament app in `workbench/`, started with `composer serve`, that uses every field, column
-  and entry. ABN lookup works offline without `ABR_GUID`. It isn't part of the Composer package.
+  `StateColumn`, and matching infolist entries, with `linkToAbnLookup()`, `dialable()` and
+  `abbreviated()`.
+- Demo Filament app, started with `composer serve`, that uses every field, column and entry and
+  works offline without `ABR_GUID`. It isn't part of the Composer package.

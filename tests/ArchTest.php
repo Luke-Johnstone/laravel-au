@@ -2,6 +2,10 @@
 
 declare(strict_types=1);
 
+use Filament\FilamentServiceProvider;
+use Illuminate\Support\Facades\File;
+use Symfony\Component\Finder\SplFileInfo;
+
 arch('source files declare strict types')
     ->expect('EastpointLabs\LaravelAu')
     ->toUseStrictTypes();
@@ -91,3 +95,21 @@ arch('the active ABN rule uses ABN Lookup only through the contract, not the cli
     ->expect('EastpointLabs\LaravelAu\Rules\ActiveAbn')
     ->not->toUse(['EastpointLabs\LaravelAu\Abr', 'EastpointLabs\LaravelAu\Facades\Abr'])
     ->ignoring(['EastpointLabs\LaravelAu\Abr\Contracts', 'EastpointLabs\LaravelAu\Abr\Data']);
+
+// Pest has no arch expectation for class docblocks, so this reflects on each file in src/ by its
+// PSR-4 class name. Filament classes only load with Filament installed, so CI's run without it
+// checks the rest.
+it('gives every class, interface, trait and enum in the package a docblock', function (): void {
+    $classes = collect(File::allFiles(dirname(__DIR__).'/src'))
+        ->map(fn (SplFileInfo $file): string => 'EastpointLabs\\LaravelAu\\'.str_replace(['/', '.php'], ['\\', ''], $file->getRelativePathname()))
+        ->reject(fn (string $class): bool => str_starts_with($class, 'EastpointLabs\\LaravelAu\\Filament\\')
+            && ! class_exists(FilamentServiceProvider::class));
+
+    $undocumented = $classes
+        ->filter(fn (string $class): bool => (new ReflectionClass($class))->getDocComment() === false)
+        ->values()
+        ->all();
+
+    expect($classes)->not->toBeEmpty()
+        ->and($undocumented)->toBe([]);
+});

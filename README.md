@@ -3,12 +3,17 @@
 [![Tests](https://github.com/Luke-Johnstone/laravel-au/actions/workflows/ci.yml/badge.svg)](https://github.com/Luke-Johnstone/laravel-au/actions/workflows/ci.yml)
 [![Latest version](https://img.shields.io/packagist/v/eastpointlabs/laravel-au.svg)](https://packagist.org/packages/eastpointlabs/laravel-au)
 [![Licence](https://img.shields.io/packagist/l/eastpointlabs/laravel-au.svg)](LICENSE.md)
+[![PHP version](https://img.shields.io/packagist/dependency-v/eastpointlabs/laravel-au/php.svg)](https://packagist.org/packages/eastpointlabs/laravel-au)
+[![Laravel version](https://img.shields.io/packagist/dependency-v/eastpointlabs/laravel-au/illuminate/support.svg?label=laravel)](https://packagist.org/packages/eastpointlabs/laravel-au)
+[![Total downloads](https://img.shields.io/packagist/dt/eastpointlabs/laravel-au.svg)](https://packagist.org/packages/eastpointlabs/laravel-au)
 
 Validate Australian business details in Laravel, check ABNs against the Australian Business
 Register, and add ready-made fields to Filament forms.
 
-> **Status:** in development. The API below is the planned v1 API and may change before the
-> first release.
+<!-- ![Demo](docs/images/filament-form.gif) -->
+
+> **Status:** v1 is complete and ready for its first release. The API below is the v1 API, and
+> follows semantic versioning from then on.
 
 ## What it does
 
@@ -96,6 +101,17 @@ To use ABN Lookup, request a free GUID from the
 ```dotenv
 ABR_GUID=your-guid-here
 ```
+
+## Configuration
+
+Everything has a default, so you only need to publish `config/au.php` to change one. It has two
+sections:
+
+- `abr`: the ABN Lookup GUID, timeout and caching, all set from `.env`. See
+  [Caching and settings](#caching-and-settings).
+- `phone.store_as`: whether phone numbers are saved in E.164 (`e164`, the default) or as
+  national digits (`national`). The [Eloquent cast](#storing-phone-numbers) and the
+  [Filament phone field](#filament-fields) both use it.
 
 ## Usage
 
@@ -819,9 +835,12 @@ To change the defaults, set these in your `.env` file:
 
 #### Keeping the GUID private
 
-The GUID never appears in exception messages, stack trace arguments or cache keys. ABN Lookup
-takes it as a query parameter, though, so tools that record outgoing HTTP requests, such as
-Laravel Telescope, will see it in the request URL.
+The GUID never appears in the package's exception messages, stack trace arguments or cache
+keys. ABN Lookup takes it as a query parameter, though, so anything that sees the request URL
+sees the GUID. That includes tools that record outgoing HTTP requests, such as Laravel
+Telescope, and the error Laravel throws for an unfaked request after
+`Http::preventStrayRequests()`. In tests, use [`Abr::fake()`](#testing-your-app) so no request
+is made.
 
 #### Testing your app
 
@@ -1124,6 +1143,28 @@ businesses.
 
 The address fields check the postcode against the state. With NSW selected, `3000` shows "The
 postcode must be in New South Wales."
+
+## Roadmap
+
+Ideas for later versions:
+
+- ARBN and ARSN, the numbers for registered bodies and managed investment schemes. They use the
+  same check digit as the ACN.
+- `State::timezone()`.
+- An `au:abn` Artisan command to look up an ABN from the terminal.
+- Livewire property synthesisers, so the value objects can be Livewire component properties.
+- Livewire components for apps that don't use Filament.
+
+## Deliberately excluded
+
+- **Tax file numbers.** The Privacy (Tax File Number) Rule 2015 limits who can collect TFNs,
+  why, and how they're stored. A TFN rule would make collecting them look routine, so the
+  package doesn't have one.
+- **BSB directory lookup.** AusPayNet licenses the BSB directory, so `Bsb` checks the format
+  only and can't tell you whether a branch exists.
+- **Address autocomplete and postcode-to-suburb data.** The data is licensed, and finding an
+  address is a different job from checking one. The postcode checks use public state ranges
+  only.
 
 ## Testing
 
