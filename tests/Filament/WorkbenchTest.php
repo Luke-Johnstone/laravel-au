@@ -26,21 +26,40 @@ beforeEach(function (): void {
     $this->artisan('migrate:fresh')->assertSuccessful();
 });
 
-it('opens the demo panel signed in, listing the seeded suppliers formatted', function (): void {
-    // The demo signs its user in only in the local environment, which `composer serve` uses.
-    $this->app->detectEnvironment(fn (): string => 'local');
+describe('in the local environment', function (): void {
+    beforeEach(function (): void {
+        // `composer serve` runs the demo with APP_ENV=local. Filament lets the demo user into the
+        // panel when the app.env setting is local, and the demo signs its user in when the app's
+        // environment is, so set both.
+        config(['app.env' => 'local']);
+        $this->app->detectEnvironment(fn (): string => 'local');
+    });
 
-    $this->get('/admin')->assertOk();
-    $this->assertAuthenticated();
+    it('opens the demo panel signed in, listing the seeded suppliers formatted', function (): void {
+        $this->get('/admin')->assertOk();
+        $this->assertAuthenticated();
 
-    // The list is sorted by name, so the first supplier by name is on the first page.
-    $supplier = DB::table('suppliers')->orderBy('name')->first();
+        // The list is sorted by name, so the first supplier by name is on the first page.
+        $supplier = DB::table('suppliers')->orderBy('name')->first();
 
-    $this->get('/admin/suppliers')
-        ->assertOk()
-        ->assertSee(Abn::from($supplier->abn)->format())
-        ->assertSee(PhoneNumber::from($supplier->phone)->format())
-        ->assertSeeText($supplier->state);
+        $this->get('/admin/suppliers')
+            ->assertOk()
+            ->assertSee(Abn::from($supplier->abn)->format())
+            ->assertSee(PhoneNumber::from($supplier->phone)->format())
+            ->assertSeeText($supplier->state);
+    });
+
+    it('keeps a browser session working after the demo is rebuilt', function (): void {
+        // Only the array driver can be given session data before the first request.
+        config(['session.driver' => 'array']);
+
+        // Every build gives the demo user a new password hash, which no longer matches the one
+        // held in a session from the last build.
+        $this->actingAs(User::query()->firstOrFail())
+            ->withSession(['password_hash_web' => 'hash from an earlier build'])
+            ->get('/admin')
+            ->assertOk();
+    });
 });
 
 it('signs nobody in outside the local environment', function (): void {
@@ -49,16 +68,10 @@ it('signs nobody in outside the local environment', function (): void {
     $this->assertGuest();
 });
 
-it('keeps a browser session working after the demo is rebuilt', function (): void {
-    // Only the array driver can be given session data before the first request.
-    config(['session.driver' => 'array']);
-
-    // Every build gives the demo user a new password hash, which no longer matches the one held
-    // in a session from the last build.
+it('keeps a signed-in user out of the panel outside the local environment', function (): void {
     $this->actingAs(User::query()->firstOrFail())
-        ->withSession(['password_hash_web' => 'hash from an earlier build'])
         ->get('/admin')
-        ->assertOk();
+        ->assertForbidden();
 });
 
 describe('without an ABN Lookup GUID', function (): void {

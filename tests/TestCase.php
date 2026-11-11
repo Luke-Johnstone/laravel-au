@@ -46,8 +46,9 @@ abstract class TestCase extends Orchestra
         parent::tearDown();
 
         // Each test's application is a web of objects that refer to each other, which PHP only
-        // frees when it collects cycles. Collecting them now keeps the suite well inside PHP's
-        // default memory limit.
+        // frees when it collects cycles. Collecting them now stops memory growing with each test.
+        // The classes Filament and the demo app load stay for the whole run, so phpunit.xml.dist
+        // raises the memory limit.
         gc_collect_cycles();
     }
 
