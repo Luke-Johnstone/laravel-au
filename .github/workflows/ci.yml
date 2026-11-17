@@ -82,3 +82,23 @@ jobs:
           composer update --prefer-dist --no-interaction --no-progress
 
       - run: vendor/bin/pest --ci --exclude-group=filament
+
+  coverage:
+    name: Coverage and mutation testing
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: intl, mbstring
+          coverage: pcov
+
+      - run: composer update --prefer-dist --no-interaction --no-progress
+
+      - name: Coverage
+        run: vendor/bin/pest --ci --coverage
+
+      - name: Mutation testing
+        run: vendor/bin/pest --ci --mutate --parallel
