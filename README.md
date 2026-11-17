@@ -10,7 +10,7 @@
 Validate Australian business details in Laravel, check ABNs against the Australian Business
 Register, and add ready-made fields to Filament forms.
 
-<!-- ![Demo](docs/images/filament-form.gif) -->
+![The ABN field rejecting an invalid ABN and a cancelled one, filling in the business name for an active ABN, then checking the postcode against the state](https://raw.githubusercontent.com/Luke-Johnstone/laravel-au/main/docs/images/filament-form.gif)
 
 > **Status:** v1 is complete and ready for its first release. The API below is the v1 API, and
 > follows semantic versioning from then on.
@@ -1059,6 +1059,8 @@ These show stored values formatted, to match the form fields. The columns live i
 | `BsbColumn`     | `BsbEntry`     | `062-000`         |
 | `AuPhoneColumn` | `AuPhoneEntry` | `0491 570 156`    |
 | `StateColumn`   | `StateEntry`   | `New South Wales` |
+
+![A suppliers table with formatted ABN, ACN, BSB and phone columns, and the state as its code](https://raw.githubusercontent.com/Luke-Johnstone/laravel-au/main/docs/images/filament-table.png)
 
 ```php
 use EastpointLabs\LaravelAu\Filament\Tables\AbnColumn;
