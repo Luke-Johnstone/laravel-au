@@ -79,6 +79,13 @@ describe('identifiers', function (): void {
             ->and(count(array_unique($abns)))->toBeGreaterThan(1);
     });
 
+    it('starts some ABNs with 99, which passes the checksum whenever 10 does', function (): void {
+        // Each lead starts about 1 ABN in 175, so 5,000 ABNs all but guarantee both appear.
+        $leads = array_map(fn (): string => substr(fake()->abn(), 0, 2), range(1, 5000));
+
+        expect($leads)->toContain('10', '99');
+    });
+
     it('generates invalid ABNs that are a valid ABN with a different last digit', function (): void {
         $abns = array_map(fn (): string => fake()->invalidAbn(), range(1, 200));
 
