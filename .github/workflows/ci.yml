@@ -98,7 +98,7 @@ jobs:
       - run: composer update --prefer-dist --no-interaction --no-progress
 
       - name: Coverage
-        run: vendor/bin/pest --ci --coverage
+        run: vendor/bin/pest --ci --coverage --min=98
 
       - name: Mutation testing
-        run: vendor/bin/pest --ci --mutate --parallel
+        run: vendor/bin/pest --ci --mutate --covered-only --parallel --min=97
