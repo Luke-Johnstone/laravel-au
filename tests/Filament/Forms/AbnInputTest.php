@@ -136,7 +136,7 @@ describe('lookup()', function (): void {
         'a suppressed ABN' => fn (): AbrFake => Abr::fake()->suppressed('51824753556'),
     ]);
 
-    it('logs a warning without the GUID or the ABN when ABN Lookup fails, and the form carries on', function (Closure $breakAbnLookup): void {
+    it('logs a warning without the GUID or the ABN when ABN Lookup fails, and the form carries on', function (Closure $breakAbnLookup, string $error): void {
         $breakAbnLookup();
         Log::spy();
 
@@ -148,18 +148,22 @@ describe('lookup()', function (): void {
 
         expect($form->get('saved'))->toBe(['abn' => '51824753556', 'business_name' => 'Typed By Hand Pty Ltd']);
 
-        Log::shouldHaveReceived('warning')->once()->withArgs(function (string $message, array $context = []): bool {
+        Log::shouldHaveReceived('warning')->once()->withArgs(function (string $message, array $context = []) use ($error): bool {
             expect(loggedText($message, $context))
                 ->not->toContain('testing-guid')
                 ->not->toContain('51824753556')
-                ->not->toContain('51 824 753 556');
+                ->not->toContain('51 824 753 556')
+                ->and($context)->toBe(['error' => $error]);
 
             return true;
         });
         Http::assertNothingSent();
     })->with([
-        'ABN Lookup is unreachable' => [fn (): AbrFake => Abr::fake()->failing()],
-        'no GUID is set' => [fn () => config(['au.abr.guid' => null])],
+        'ABN Lookup is unreachable' => [fn (): AbrFake => Abr::fake()->failing(), 'Could not connect to ABN Lookup.'],
+        'no GUID is set' => [
+            fn () => config(['au.abr.guid' => null]),
+            'No ABN Lookup GUID is set. Request a free GUID from the Australian Business Register and add it to your .env file as ABR_GUID.',
+        ],
     ]);
 
     it('does not look up a value that is not a valid ABN', function (string $input): void {

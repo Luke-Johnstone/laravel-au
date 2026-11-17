@@ -194,6 +194,12 @@ describe('notFound()', function (): void {
 
         $fake->assertLookupCount(2);
     });
+
+    it('skips the ABNs given when finding an ACN', function (): void {
+        $fake = (new AbrFake)->notFound('51824753556');
+
+        expect($fake->acn('004085616'))->toBeNull();
+    });
 });
 
 describe('suppressed()', function (): void {

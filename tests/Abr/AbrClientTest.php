@@ -175,9 +175,9 @@ describe('searchByName()', function (): void {
         'a not-found message' => 'No records found',
     ]);
 
-    it('throws the error ABN Lookup reports', function (): void {
+    it('throws the error ABN Lookup reports', function (array $names): void {
         $error = 'The GUID entered is not recognised as a Registered Party';
-        Http::fake(['*' => Http::response('callback('.json_encode(['Message' => $error, 'Names' => []]).')')]);
+        Http::fake(['*' => Http::response('callback('.json_encode(['Message' => $error, ...$names]).')')]);
 
         expect(fn () => app(LooksUpAbns::class)->searchByName('Example Holdings'))
             ->toThrow(function (AbrException $exception) use ($error): void {
@@ -185,7 +185,10 @@ describe('searchByName()', function (): void {
 
                 expectNoGuidOrUrl($exception->getMessage());
             });
-    });
+    })->with([
+        'with an empty list of names' => [['Names' => []]],
+        'with no list of names' => [[]],
+    ]);
 
     it('never caches a search', function (): void {
         Http::fake(['*' => Http::response(fixtureContents('abr/names-search.jsonp'))]);
@@ -223,6 +226,7 @@ describe('records that are not found', function (): void {
     })->with([
         'the not-found response' => ['abn', '51824753556', fn (): string => fixtureContents('abr/abn-not-found.jsonp')],
         'an empty message' => ['abn', '51824753556', 'callback({"Abn":"","Message":""})'],
+        'no message' => ['abn', '51824753556', 'callback({"Abn":""})'],
         'a not-found message in capitals' => ['abn', '51824753556', 'callback({"Abn":"","Message":"NO RECORDS FOUND."})'],
         'a blank ABN' => ['abn', '51824753556', 'callback({"Abn":"   ","AbnStatus":"","Message":""})'],
         'a blank message' => ['abn', '51824753556', 'callback({"Abn":"","Message":"   "})'],

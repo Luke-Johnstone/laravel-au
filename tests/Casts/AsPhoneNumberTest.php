@@ -148,4 +148,10 @@ it('only marks the model as changed when the number itself changes', function ()
     $model->phone = '0491 570 156';
 
     expect($model->isDirty('phone'))->toBeTrue();
+
+    // Giving an empty column a number is a change too.
+    $empty = TestModel::casting(['phone' => AsPhoneNumber::class])->setRawAttributes(['phone' => null], sync: true);
+    $empty->phone = '0491570006';
+
+    expect($empty->isDirty('phone'))->toBeTrue();
 });

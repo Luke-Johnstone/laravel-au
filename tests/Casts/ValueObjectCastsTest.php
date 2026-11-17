@@ -193,4 +193,10 @@ it('only marks the model as changed when the value itself changes', function (
     $model->field = $another;
 
     expect($model->isDirty('field'))->toBeTrue();
+
+    // Giving an empty column a value is a change too.
+    $empty = TestModel::casting(['field' => $cast])->setRawAttributes(['field' => null], sync: true);
+    $empty->field = $canonical;
+
+    expect($empty->isDirty('field'))->toBeTrue();
 })->with('value object casts');
