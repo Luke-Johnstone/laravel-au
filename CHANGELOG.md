@@ -7,6 +7,8 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-11-18
+
 ### Added
 
 - Value objects `Abn`, `Acn`, `Bsb`, `Postcode` and `PhoneNumber`, which accept numbers as
@@ -44,3 +46,6 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `abbreviated()`.
 - Demo Filament app, started with `composer serve`, that uses every field, column and entry and
   works offline without `ABR_GUID`. It isn't part of the Composer package.
+
+[Unreleased]: https://github.com/Luke-Johnstone/laravel-au/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/Luke-Johnstone/laravel-au/releases/tag/v1.0.0

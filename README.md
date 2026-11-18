@@ -12,9 +12,6 @@ Register, and add ready-made fields to Filament forms.
 
 ![The ABN field rejecting an invalid ABN and a cancelled one, filling in the business name for an active ABN, then checking the postcode against the state](https://raw.githubusercontent.com/Luke-Johnstone/laravel-au/main/docs/images/filament-form.gif)
 
-> **Status:** v1 is complete and ready for its first release. The API below is the v1 API, and
-> follows semantic versioning from then on.
-
 ## What it does
 
 **Catches bad details before they're saved.** Rules for ABNs, ACNs, BSBs, phone numbers and
