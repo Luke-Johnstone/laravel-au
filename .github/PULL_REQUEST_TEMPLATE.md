@@ -6,5 +6,5 @@
 
 - [ ] `composer check` passes (Pint, PHPStan, Pest)
 - [ ] Tests cover the change
-- [ ] README and CHANGELOG (Unreleased) updated if the public API changed
+- [ ] README or `docs/`, and CHANGELOG (Unreleased), updated if the public API changed
 - [ ] No real personal data, client data or ABR GUIDs in code, tests or fixtures

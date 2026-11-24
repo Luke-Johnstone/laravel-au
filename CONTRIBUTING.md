@@ -27,7 +27,8 @@ composer check
   may use Filament.
 - **Conventional Commits.** For example `feat(rules): add au_postcode string rule` or
   `fix(phone): accept numbers with a 61 prefix`.
-- **Document public changes** in `README.md` and under `[Unreleased]` in `CHANGELOG.md`.
+- **Document public changes** in `README.md` or the pages in `docs/`, and under `[Unreleased]`
+  in `CHANGELOG.md`.
 
 ## Reporting security issues
 
